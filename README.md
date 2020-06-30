@@ -1,0 +1,2 @@
+# blender_BoneAnimCopy
+用于在blender中桥接骨骼动画的插件
