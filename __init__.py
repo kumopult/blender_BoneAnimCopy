@@ -65,7 +65,7 @@ class BAC_State(bpy.types.PropertyGroup):
     target: bpy.props.PointerProperty(type=bpy.types.Object)
     
     mappings: bpy.props.CollectionProperty(type=data.BAC_BoneMapping)
-    active_mapping: bpy.props.IntProperty()
+    active_mapping: bpy.props.IntProperty(default=-1)
     
     editing_mappings: bpy.props.BoolProperty(default=False)
     
@@ -83,11 +83,37 @@ class BAC_State(bpy.types.PropertyGroup):
     def get_target_armature(self):
         return self.target.data
     
+    def get_source_pose(self):
+        return self.source.pose
+
+    def get_target_pose(self):
+        return self.target.pose
+
+    def get_mapping_by_source(self, name):
+        if name == "":
+            return None
+        for m in self.mappings:
+            if m.source == name:
+                return m
+        return None
+
+    def get_mapping_by_target(self, name):
+        if name == "":
+            return None
+        for m in self.mappings:
+            if m.target == name:
+                return m
+        return None
+    
     def add_mapping(self, target, source):
+        # 这里需要检测一下是否已存在mapping
+        m = self.get_mapping_by_target(target)
+        if m:
+            return m
         m = self.mappings.add()
-        m.target = target
+        m.selected_target = target
+        # m.target = target
         m.source = source
-        # self.active_mapping = len(self.mappings) - 1
         return m
     
     def remove_mapping(self, index):
