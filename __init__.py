@@ -67,7 +67,7 @@ class BAC_State(bpy.types.PropertyGroup):
     mappings: bpy.props.CollectionProperty(type=data.BAC_BoneMapping)
     active_mapping: bpy.props.IntProperty(default=-1)
     
-    editing_mappings: bpy.props.BoolProperty(default=False)
+    editing_mappings: bpy.props.BoolProperty(default=False, description="展开详细编辑面板")
     
     def update_source(self):
         self.target = bpy.context.object
@@ -89,6 +89,9 @@ class BAC_State(bpy.types.PropertyGroup):
     def get_target_pose(self):
         return self.target.pose
 
+    def get_active_mapping(self):
+        return self.mappings[self.active_mapping]
+    
     def get_mapping_by_source(self, name):
         if name == "":
             return None
