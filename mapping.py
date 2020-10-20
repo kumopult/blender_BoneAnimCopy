@@ -128,7 +128,7 @@ class BAC_OT_ListAction(bpy.types.Operator):
 
 class BAC_OT_ChildMapping(bpy.types.Operator):
     bl_idname = 'kumopult_bac.child_mapping'
-    bl_label = '在指定了某一对源和目标后，可以快捷地给两者的子级建立新的对应关系\n如果两者的子级都只有一个，则这一操作将会向下无限递归\n否则将会以所有子级作为目标，新建源为空的对应'
+    bl_label = '在指定了某一对源和目标后，可以快捷地给两者的子级建立新的对应关系'
     
     def child_mapping(self):
         s = get_state()
@@ -139,7 +139,7 @@ class BAC_OT_ChildMapping(bpy.types.Operator):
         if len(source_children) == len(target_children) == 1:
             add_mapping_below(target_children[0].name, source_children[0].name)
             # 递归调用，实现连锁对应
-            self.child_mapping()
+            # self.child_mapping()
         else:
             for i in range(0, len(target_children)):
                 add_mapping_below(target_children[i].name, '')
