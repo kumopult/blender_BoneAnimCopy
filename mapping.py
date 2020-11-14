@@ -1,4 +1,5 @@
 import bpy
+from bl_operators.presets import AddPresetBase
 from .utilfuncs import get_state, get_similar_bone
 
 def draw_panel(layout):
@@ -6,15 +7,19 @@ def draw_panel(layout):
     
     row = layout.row()
     row.label(text='Edit Bone Mappings:', icon='TOOL_SETTINGS')
-    row.prop(s, 'editing_mappings', text="编辑细节", toggle=True)
+    # row.prop(s, 'editing_mappings', text="编辑细节", toggle=True)
+    row.operator('kumopult_bac.select_edit_type', icon='PRESET', emboss=True, depress=s.editing_type==0).selected_type = 0
+    row.operator('kumopult_bac.select_edit_type', icon='CON_ROTLIKE', emboss=True, depress=s.editing_type==1).selected_type = 1
+    row.operator('kumopult_bac.select_edit_type', icon='CON_LOCLIKE', emboss=True, depress=s.editing_type==2).selected_type = 2
+    row.operator('kumopult_bac.select_edit_type', icon='CON_KINEMATIC', emboss=True, depress=s.editing_type==3).selected_type = 3
 
     row = layout.row()
     row.template_list('BAC_UL_mappings', '', s, 'mappings', s, 'active_mapping')
     col = row.column(align=True)
-    col.operator('kumopult_bac.list_action', icon='ADD', text='').action = 'ADD'
-    col.operator('kumopult_bac.list_action', icon='REMOVE', text='').action = 'REMOVE'
-    col.operator('kumopult_bac.list_action', icon='TRIA_UP', text='').action = 'UP'
-    col.operator('kumopult_bac.list_action', icon='TRIA_DOWN', text='').action = 'DOWN'
+    col.operator('kumopult_bac.list_action', icon='ADD').action = 'ADD'
+    col.operator('kumopult_bac.list_action', icon='REMOVE').action = 'REMOVE'
+    col.operator('kumopult_bac.list_action', icon='TRIA_UP').action = 'UP'
+    col.operator('kumopult_bac.list_action', icon='TRIA_DOWN').action = 'DOWN'
     col.separator()
     col.operator('kumopult_bac.child_mapping', icon='CON_CHILDOF', text='',)
     col.operator('kumopult_bac.name_mapping', icon='CON_TRANSFORM_CACHE', text='',)
@@ -29,19 +34,43 @@ class BAC_UL_mappings(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index, flt_flag):
         s = get_state()
         layout.alert = not item.is_valid() # 该mapping无效时警告
-        layout.prop_search(item, 'selected_target', s.get_target_armature(), 'bones', text='', icon='BONE_DATA')
         if not item.target_valid():
-            layout.label(icon='BONE_DATA')
+            layout.label(icon='ZOOM_IN')
+            layout.prop_search(item, 'selected_target', s.get_target_armature(), 'bones', text='')
         else:
-            if not s.editing_mappings:
+            def mapping():
+                layout.prop_search(item, 'selected_target', s.get_target_armature(), 'bones', text='', icon='BONE_DATA')
                 layout.label(icon='BACK')
                 layout.prop_search(item, 'source', s.get_source_armature(), 'bones', text='', icon='BONE_DATA')
-            else:
+            def rotation():
+                layout.prop(item, 'has_rotoffs', icon='CON_ROTLIKE', icon_only=True)
+                layout.label(text=item.selected_target)
                 layout.separator(factor=0.5)
                 if item.has_rotoffs:
                     layout.prop(item, 'offset', text='')
-                layout.prop(item, 'has_rotoffs', icon='CON_ROTLIKE', icon_only=True)
+            def location():
                 layout.prop(item, 'has_loccopy', icon='CON_LOCLIKE', icon_only=True)
+                layout.label(text=item.selected_target)
+                layout.separator(factor=0.5)
+                if item.has_loccopy:
+                    layout.prop(item.get_cp(), 'use_x', text='X', toggle=True)
+                    layout.prop(item.get_cp(), 'use_y', text='Y', toggle=True)
+                    layout.prop(item.get_cp(), 'use_z', text='Z', toggle=True)
+            def ik():
+                layout.prop(item, 'has_ik', icon='CON_KINEMATIC', icon_only=True)
+                layout.label(text=item.selected_target)
+                layout.separator(factor=0.1)
+                if item.has_ik:
+                    layout.prop(item.get_ik(), 'influence')
+            
+            draw = {
+                0: mapping,
+                1: rotation,
+                2: location,
+                3: ik
+            }
+
+            draw[s.editing_type]()
 
     def draw_filter(self, context, layout):
         pass
@@ -52,6 +81,29 @@ class BAC_UL_mappings(bpy.types.UIList):
 
         return flt_flags, flt_neworder
 
+class BAC_MT_presets(bpy.types.Menu):
+    bl_label = "Mapping预设"
+    preset_subdir = "kumopult_bac"
+    preset_operator = "script.execute_preset"
+    draw = bpy.types.Menu.draw_preset
+
+class AddPresetBACMapping(AddPresetBase, bpy.types.Operator):
+    bl_idname = "kumopult_bac.mappings_preset_add"
+    bl_label = "Add BAC Mappings Preset"
+    preset_menu = "BAC_MT_presets"
+
+    # variable used for all preset values
+    preset_defines = [
+        "s = bpy.context.object.kumopult_bac"
+    ]
+
+    # properties to store in the preset
+    preset_values = [
+        "s.mappings",
+    ]
+
+    # where to store the preset
+    preset_subdir = "kumopult_bac"
 
 '''
 先前两个分开显示的列表，现已整合到一起
@@ -91,10 +143,22 @@ class BAC_UL_constraints(bpy.types.UIList):
         return flt_flags, flt_neworder
 '''
 
+class BAC_OT_SelectEditType(bpy.types.Operator):
+    bl_idname = 'kumopult_bac.select_edit_type'
+    bl_label = ''
+    bl_description = '选择编辑列表类型'
+    selected_type: bpy.props.IntProperty()
+
+    def execute(self, context):
+        s = get_state()
+        s.editing_type = self.selected_type
+
+        return {'FINISHED'}
 
 class BAC_OT_ListAction(bpy.types.Operator):
     bl_idname = 'kumopult_bac.list_action'
-    bl_label = '列表基本操作，依次为新建、删除、上移、下移\n其中在姿态模式下选中骨骼并点击新建的话，\n可以自动填入对应骨骼'
+    bl_label = ''
+    bl_description = '列表基本操作，依次为新建、删除、上移、下移\n其中在姿态模式下选中骨骼并点击新建的话，\n可以自动填入对应骨骼'
     action: bpy.props.StringProperty()
 
     def execute(self, context):
@@ -204,7 +268,10 @@ class BAC_OT_Edit(bpy.types.Operator):
 
 classes = (
     BAC_UL_mappings,
+    BAC_MT_presets,
+    AddPresetBACMapping,
     
+    BAC_OT_SelectEditType,
     BAC_OT_ListAction,
     BAC_OT_ChildMapping,
     BAC_OT_NameMapping

@@ -22,6 +22,7 @@ bl_info = {
     "category" : "Armature",
     "doc_url": "https://github.com/kumopult/blender_BoneAnimCopy",
     "tracker_url": "https://github.com/kumopult/blender_BoneAnimCopy/issues",
+    # VScode调试：Ctrl + Shift + P
 }
 
 import bpy
@@ -50,7 +51,11 @@ class BAC_PT_Panel(bpy.types.Panel):
             if s.source == None:
                 layout.label(text='Choose a source armature to continue', icon='INFO')
             else:
-                layout.label(text='Bone Mappings')
+                row = layout.row()
+                row.label(text='Bone Mappings')
+                row.menu(mapping.BAC_MT_presets.__name__, text=mapping.BAC_MT_presets.bl_label)
+                row.operator(mapping.AddPresetBACMapping.bl_idname, text="", icon='ADD')
+                row.operator(mapping.AddPresetBACMapping.bl_idname, text="", icon='REMOVE').remove_active = True
                 mapping.draw_panel(layout.box())
         else:
             layout.label(text='No armature selected', icon='ERROR')
@@ -68,14 +73,14 @@ class BAC_State(bpy.types.PropertyGroup):
     active_mapping: bpy.props.IntProperty(default=-1)
     
     editing_mappings: bpy.props.BoolProperty(default=False, description="展开详细编辑面板")
+    editing_type: bpy.props.IntProperty(description="用于记录面板类型")
     
     def update_source(self):
         self.target = bpy.context.object
-
-        if self.selected_source == None:
-            return
-        
         self.source = self.selected_source
+
+        # if self.selected_source != None:
+        #     return
     
     def get_source_armature(self):
         return self.source.data
