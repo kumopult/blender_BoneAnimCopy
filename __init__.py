@@ -15,13 +15,13 @@ bl_info = {
     "name" : "Bone Animation Copy Tool",
     "author" : "Kumopult <kumopult@qq.com>",
     "description" : "Copy animation between different armature by bone constrain",
-    "blender" : (2, 80, 3),
+    "blender" : (2, 83, 4),
     "version" : (0, 0, 1),
     "location" : "View 3D > Toolshelf",
-    "warning" : "",
-    "category" : "Armature",
+    "warning" : "因为作者很懒所以没写英文教学！",
+    "category" : "Animation",
     "doc_url": "https://github.com/kumopult/blender_BoneAnimCopy",
-    "tracker_url": "https://github.com/kumopult/blender_BoneAnimCopy/issues",
+    "tracker_url": "https://space.bilibili.com/1628026",
     # VScode调试：Ctrl + Shift + P
 }
 
@@ -79,8 +79,8 @@ class BAC_State(bpy.types.PropertyGroup):
         self.target = bpy.context.object
         self.source = self.selected_source
 
-        # if self.selected_source != None:
-        #     return
+        for m in self.mappings:
+            m.apply()
     
     def get_source_armature(self):
         return self.source.data
@@ -117,7 +117,7 @@ class BAC_State(bpy.types.PropertyGroup):
         # 这里需要检测一下是否已存在mapping
         m = self.get_mapping_by_target(target)
         if m:
-            return m
+            return False
         m = self.mappings.add()
         m.selected_target = target
         # m.target = target

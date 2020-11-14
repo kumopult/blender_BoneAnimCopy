@@ -105,7 +105,7 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             self.has_ik:      self.get_ik
         }
 
-        for key, value in con:
+        for key, value in con.items():
             if key:
                 c = value()
                 c.target = s.source

@@ -26,7 +26,8 @@ def draw_panel(layout):
 
 def add_mapping_below(target, source):
     s = get_state()
-    s.add_mapping(target, source)
+    if not s.add_mapping(target, source):
+        return
     s.mappings.move(len(s.mappings) - 1, s.active_mapping + 1)
     s.active_mapping += 1
 
@@ -164,7 +165,7 @@ class BAC_OT_ListAction(bpy.types.Operator):
     def execute(self, context):
         s = get_state()
 
-        if self.action == 'ADD':
+        def add():
             #这里需要加一下判断，如果有选中的骨骼则自动填入target
             pb = bpy.context.selected_pose_bones_from_active_object
             if pb != None and len(pb) > 0:
@@ -173,20 +174,29 @@ class BAC_OT_ListAction(bpy.types.Operator):
             else:
                 add_mapping_below('', '')
         
-        elif self.action == 'REMOVE':
+        def remove():
             if len(s.mappings) > 0:
                 s.remove_mapping(s.active_mapping)
                 s.active_mapping =  min(s.active_mapping, len(s.mappings) - 1)
         
-        elif self.action == 'UP':
+        def up():
             if s.active_mapping > 0:
                 s.mappings.move(s.active_mapping, s.active_mapping - 1)
                 s.active_mapping -= 1
         
-        elif self.action == 'DOWN':
+        def down():
             if len(s.mappings) > s.active_mapping + 1:
                 s.mappings.move(s.active_mapping, s.active_mapping + 1)
                 s.active_mapping += 1
+        
+        ops = {
+            'ADD': add,
+            'REMOVE': remove,
+            'UP': up,
+            'DOWN': down
+        }
+
+        ops[self.action]()
 
         return {'FINISHED'}
 
