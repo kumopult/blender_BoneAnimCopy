@@ -74,6 +74,12 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         subtype='EULER',
         update=update_offset
     )
+    con = {
+        True:        get_cr,
+        has_rotoffs: get_rr,
+        has_loccopy: get_cp,
+        has_ik:      get_ik
+    }
     # last_target: bpy.props.StringProperty()
     # roll: bpy.props.FloatProperty()
 
@@ -98,14 +104,7 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         # apply mapping into constraint
         s = get_state()
 
-        con = {
-            True:             self.get_cr,
-            self.has_rotoffs: self.get_rr,
-            self.has_loccopy: self.get_cp,
-            self.has_ik:      self.get_ik
-        }
-
-        for key, value in con.items():
+        for key, value in self.con.items():
             if key:
                 c = value()
                 c.target = s.source
@@ -133,11 +132,9 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
 
 
     def clear(self):
-        self.remove(self.get_cr())
-        if self.has_rotoffs:
-            self.remove(self.get_rr())
-        if self.has_loccopy:
-            self.remove(self.get_cp())
+        for key, value in self.con.items():
+            if key:
+                self.remove(value())
     
     def remove(self, constraint):
         if not self.target_valid():
