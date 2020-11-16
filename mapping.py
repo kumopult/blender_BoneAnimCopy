@@ -35,7 +35,7 @@ class BAC_UL_mappings(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index, flt_flag):
         s = get_state()
         layout.alert = not item.is_valid() # 该mapping无效时警告
-        if not item.target_valid():
+        if not (item.target_valid() or item.source_valid()):
             layout.label(icon='ZOOM_IN')
             layout.prop_search(item, 'selected_target', s.get_target_armature(), 'bones', text='')
         else:
