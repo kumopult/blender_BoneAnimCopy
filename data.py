@@ -74,14 +74,6 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         subtype='EULER',
         update=update_offset
     )
-    con = {
-        True:        get_cr,
-        has_rotoffs: get_rr,
-        has_loccopy: get_cp,
-        has_ik:      get_ik
-    }
-    # last_target: bpy.props.StringProperty()
-    # roll: bpy.props.FloatProperty()
 
     def to_string(self):
         return
@@ -104,7 +96,14 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         # apply mapping into constraint
         s = get_state()
 
-        for key, value in self.con.items():
+        con = {
+            True:             self.get_cr,
+            self.has_rotoffs: self.get_rr,
+            self.has_loccopy: self.get_cp,
+            self.has_ik:      self.get_ik
+        }
+
+        for key, value in con.items():
             if key:
                 c = value()
                 c.target = s.source
@@ -116,23 +115,16 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             rr.to_min_y_rot = self.offset[1]
             rr.to_min_z_rot = self.offset[2]
 
-        # cr = self.get_cr()
-        # cr.target = s.source
-        # cr.subtarget = self.source
-
-        # if self.has_loccopy:
-        #     cp = self.get_cp()
-        #     cp.target = s.source
-        #     cp.subtarget = self.source
-
-        # if self.has_ik:
-        #     cp = self.get_ik()
-        #     cp.target = s.source
-        #     cp.subtarget = self.source
-
 
     def clear(self):
-        for key, value in self.con.items():
+        con = {
+            True:             self.get_cr,
+            self.has_rotoffs: self.get_rr,
+            self.has_loccopy: self.get_cp,
+            self.has_ik:      self.get_ik
+        }
+
+        for key, value in con.items():
             if key:
                 self.remove(value())
     
@@ -140,15 +132,6 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         if not self.target_valid():
             return
         get_state().get_target_pose().bones.get(self.target).constraints.remove(constraint)
-        
-    '''
-    def save(self):
-        # save constraint roll into mapping
-        # cr = self.get_cr()
-        rr = self.get_rr()
-        
-        self.roll = rr.to_min_y_rot
-    '''
     
     def get_cr(self):
         if self.target_valid():

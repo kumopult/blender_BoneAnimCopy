@@ -106,44 +106,6 @@ class AddPresetBACMapping(AddPresetBase, bpy.types.Operator):
     # where to store the preset
     preset_subdir = "kumopult_bac"
 
-'''
-先前两个分开显示的列表，现已整合到一起
-class BAC_UL_mappings(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index, flt_flag):
-        s = get_state()
-        layout.alert = not item.is_valid()
-        layout.prop_search(item, 'target', s.get_target_armature(), 'bones', text='', icon='BONE_DATA')
-        layout.label(icon='BACK')
-        layout.prop_search(item, 'source', s.get_source_armature(), 'bones', text='', icon='BONE_DATA')
-
-    def draw_filter(self, context, layout):
-        pass
-
-    def filter_items(self, context, data, propname):
-        flt_flags = []
-        flt_neworder = []
-
-        return flt_flags, flt_neworder
-    
-    
-class BAC_UL_constraints(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index, flt_flag):
-        s = get_state()
-        layout.alert = not item.is_valid()
-        layout.label(text=item.target, icon='BONE_DATA')
-        layout.label(icon='FORWARD')
-        layout.prop(item.get_rr(), 'to_min_y_rot', text='')
-
-    def draw_filter(self, context, layout):
-        pass
-
-    def filter_items(self, context, data, propname):
-        flt_flags = []
-        flt_neworder = []
-
-        return flt_flags, flt_neworder
-'''
-
 class BAC_OT_SelectEditType(bpy.types.Operator):
     bl_idname = 'kumopult_bac.select_edit_type'
     bl_label = ''
@@ -242,39 +204,6 @@ class BAC_OT_NameMapping(bpy.types.Operator):
             self.report({"ERROR"}, "未选择目标骨骼")
 
         return {'FINISHED'}
-
-'''
-class BAC_OT_Apply(bpy.types.Operator):
-    bl_idname = 'kumopult_bac.constraint_apply'
-    bl_label = 'Apply'
-    
-    def execute(self, context):
-        # exit the edit mode, build or adjust the constraint by mappings
-        s = get_state()
-        s.editing_mappings = False
-        
-        for mapping in s.mappings:
-            if mapping.is_valid():
-                mapping.apply()
-            
-        return {'FINISHED'}
-    
-    
-class BAC_OT_Edit(bpy.types.Operator):
-    bl_idname = 'kumopult_bac.constraint_edit'
-    bl_label = 'Edit'
-    
-    def execute(self, context):
-        # enter the edit mode, save the roll value
-        s = get_state()
-        s.editing_mappings = True
-        
-        for mapping in s.mappings:
-            if mapping.is_valid():
-                mapping.save()
-            
-        return {'FINISHED'}
-'''
 
 classes = (
     BAC_UL_mappings,
