@@ -42,23 +42,23 @@ class BAC_PT_Panel(bpy.types.Panel):
         if context.object != None and context.object.type == 'ARMATURE':
             s = get_state()
             
-            split = layout.row().split(factor=0.244)
-            split.column().label(text='Target:')
+            split = layout.row().split(factor=0.25)
+            split.column().label(text='映射目标:')
             split.column().label(text=context.object.name, icon='ARMATURE_DATA')
-            layout.prop(s, 'selected_source', text='Source', icon='ARMATURE_DATA')
+            layout.prop(s, 'selected_source', text='动作来源', icon='ARMATURE_DATA')
             layout.separator()
             
             if s.source == None:
-                layout.label(text='Choose a source armature to continue', icon='INFO')
+                layout.label(text='选择另一骨架对象作为动作来源以继续操作', icon='INFO')
             else:
                 row = layout.row()
-                row.label(text='Bone Mappings')
+                row.label(text='使用预设:')
                 row.menu(mapping.BAC_MT_presets.__name__, text=mapping.BAC_MT_presets.bl_label)
                 row.operator(mapping.AddPresetBACMapping.bl_idname, text="", icon='ADD')
                 row.operator(mapping.AddPresetBACMapping.bl_idname, text="", icon='REMOVE').remove_active = True
                 mapping.draw_panel(layout.box())
         else:
-            layout.label(text='No armature selected', icon='ERROR')
+            layout.label(text='未选中骨架对象', icon='ERROR')
 
 class BAC_State(bpy.types.PropertyGroup):
     selected_source: bpy.props.PointerProperty(
@@ -98,31 +98,37 @@ class BAC_State(bpy.types.PropertyGroup):
         return self.mappings[self.active_mapping]
     
     def get_mapping_by_source(self, name):
-        if name == "":
-            return None
-        for m in self.mappings:
-            if m.source == name:
-                return m
-        return None
+        if name != "":
+            for i, m in enumerate(self.mappings):
+                if m.source == name:
+                    return m, i
+        return None, -1
 
     def get_mapping_by_target(self, name):
-        if name == "":
-            return None
-        for m in self.mappings:
-            if m.target == name:
-                return m
-        return None
+        if name != "":
+            for i, m in enumerate(self.mappings):
+                if m.target == name:
+                    return m, i
+        return None, -1
     
     def add_mapping(self, target, source):
-        # 这里需要检测一下是否已存在mapping
-        m = self.get_mapping_by_target(target)
+        # 这里需要检测一下目标骨骼是否已存在映射
+        m, i = self.get_mapping_by_target(target)
+        # 若已存在，则覆盖原本的源骨骼，并返回映射和索引值
         if m:
-            return False
+            print("目标骨骼已存在映射关系，已覆盖修改源骨骼")
+            m.source = source
+            return m, i
+        # 若不存在，则新建映射，同样返回映射和索引值
         m = self.mappings.add()
         m.selected_target = target
-        # m.target = target
         m.source = source
-        return m
+        return m, len(self.mappings) - 1
+    
+    def add_mapping_below(self, target, source):
+        i = self.add_mapping(target, source)[1]
+        self.mappings.move(i, self.active_mapping + 1)
+        self.active_mapping += 1
     
     def remove_mapping(self, index):
         self.mappings[index].clear()

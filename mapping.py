@@ -6,7 +6,7 @@ def draw_panel(layout):
     s = get_state()
     
     row = layout.row()
-    row.label(text='Edit Bone Mappings:', icon='TOOL_SETTINGS')
+    row.label(text='编辑骨骼映射表:', icon='TOOL_SETTINGS')
     # row.prop(s, 'editing_mappings', text="编辑细节", toggle=True)
     row.operator('kumopult_bac.select_edit_type', icon='PRESET', emboss=True, depress=s.editing_type==0).selected_type = 0
     row.operator('kumopult_bac.select_edit_type', icon='CON_ROTLIKE', emboss=True, depress=s.editing_type==1).selected_type = 1
@@ -16,13 +16,13 @@ def draw_panel(layout):
     row = layout.row()
     row.template_list('BAC_UL_mappings', '', s, 'mappings', s, 'active_mapping')
     col = row.column(align=True)
-    col.operator('kumopult_bac.list_action', icon='ADD').action = 'ADD'
-    col.operator('kumopult_bac.list_action', icon='REMOVE').action = 'REMOVE'
-    col.operator('kumopult_bac.list_action', icon='TRIA_UP').action = 'UP'
-    col.operator('kumopult_bac.list_action', icon='TRIA_DOWN').action = 'DOWN'
+    col.operator('kumopult_bac.list_action', icon='ADD', text='').action = 'ADD'
+    col.operator('kumopult_bac.list_action', icon='REMOVE', text='').action = 'REMOVE'
+    col.operator('kumopult_bac.list_action', icon='TRIA_UP', text='').action = 'UP'
+    col.operator('kumopult_bac.list_action', icon='TRIA_DOWN', text='').action = 'DOWN'
     col.separator()
-    col.operator('kumopult_bac.child_mapping', icon='CON_CHILDOF', text='',)
-    col.operator('kumopult_bac.name_mapping', icon='CON_TRANSFORM_CACHE', text='',)
+    col.operator('kumopult_bac.child_mapping', icon='CON_CHILDOF', text='')
+    col.operator('kumopult_bac.name_mapping', icon='CON_TRANSFORM_CACHE', text='')
 
 def add_mapping_below(target, source):
     s = get_state()
@@ -90,7 +90,8 @@ class BAC_MT_presets(bpy.types.Menu):
 
 class AddPresetBACMapping(AddPresetBase, bpy.types.Operator):
     bl_idname = "kumopult_bac.mappings_preset_add"
-    bl_label = "Add BAC Mappings Preset"
+    bl_label = "添加预设 Add BAC Mappings Preset"
+    bl_description = "将当前骨骼映射表保存为预设，以供后续直接套用"
     preset_menu = "BAC_MT_presets"
 
     # variable used for all preset values
@@ -120,8 +121,8 @@ class BAC_OT_SelectEditType(bpy.types.Operator):
 
 class BAC_OT_ListAction(bpy.types.Operator):
     bl_idname = 'kumopult_bac.list_action'
-    bl_label = ''
-    bl_description = '列表基本操作，依次为新建、删除、上移、下移\n其中在姿态模式下选中骨骼并点击新建的话，\n可以自动填入对应骨骼'
+    bl_label = '列表基本操作'
+    bl_description = '依次为新建、删除、上移、下移\n其中在姿态模式下选中骨骼并点击新建的话，\n可以自动填入对应骨骼'
     action: bpy.props.StringProperty()
 
     def execute(self, context):
@@ -132,9 +133,9 @@ class BAC_OT_ListAction(bpy.types.Operator):
             pb = bpy.context.selected_pose_bones_from_active_object
             if pb != None and len(pb) > 0:
                 for b in pb:
-                    add_mapping_below(b.name, '')
+                    s.add_mapping_below(b.name, '')
             else:
-                add_mapping_below('', '')
+                s.add_mapping_below('', '')
         
         def remove():
             if len(s.mappings) > 0:
@@ -164,7 +165,8 @@ class BAC_OT_ListAction(bpy.types.Operator):
 
 class BAC_OT_ChildMapping(bpy.types.Operator):
     bl_idname = 'kumopult_bac.child_mapping'
-    bl_label = '在指定了某一对源和目标后，可以快捷地给两者的子级建立新的对应关系'
+    bl_label = '子级映射'
+    bl_description = '在选中了某一对源和目标后，如果两者都仅有唯一的子级，则可以快捷地让这对子级建立新的映射关系'
     
     def child_mapping(self):
         s = get_state()
@@ -173,12 +175,12 @@ class BAC_OT_ChildMapping(bpy.types.Operator):
         target_children = s.get_target_armature().bones[m.target].children
         
         if len(source_children) == len(target_children) == 1:
-            add_mapping_below(target_children[0].name, source_children[0].name)
+            s.add_mapping_below(target_children[0].name, source_children[0].name)
             # 递归调用，实现连锁对应
             # self.child_mapping()
         else:
             for i in range(0, len(target_children)):
-                add_mapping_below(target_children[i].name, '')
+                s.add_mapping_below(target_children[i].name, '')
     
     def execute(self, context):
         s = get_state()
@@ -186,13 +188,14 @@ class BAC_OT_ChildMapping(bpy.types.Operator):
         if m.is_valid():
             self.child_mapping()
         else:
-            self.report({"ERROR"}, "所选mapping不完整")
+            self.report({"ERROR"}, "所选映射不完整")
             
         return {'FINISHED'}
 
 class BAC_OT_NameMapping(bpy.types.Operator):
     bl_idname = 'kumopult_bac.name_mapping'
-    bl_label = '指定目标骨骼后，根据最相似的骨骼名称来建立对应关系'
+    bl_label = '名称映射'
+    bl_description = '按照名称的相似程度来给目标骨骼自动寻找最接近的源骨骼，不怎么准，慎用'
 
     def execute(self, context):
         s = get_state()
