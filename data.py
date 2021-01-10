@@ -40,34 +40,34 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         rr.to_min_z_rot = self.offset[2]
 
     selected_target: bpy.props.StringProperty(
-        name="selected_target", 
+        name="映射目标", 
         description="将对方骨骼的旋转复制到自身的哪根骨骼上？", 
         update=update_target
     )
-    target: bpy.props.StringProperty(name="target")
+    target: bpy.props.StringProperty()
     source: bpy.props.StringProperty(
-        name="source", 
-        description="从对方骨架中选择哪根骨骼作为动画来源？", 
+        name="动作来源", 
+        description="从对方骨架中选择哪根骨骼作为动作来源？", 
         update=update_source
     )
 
     has_rotoffs: bpy.props.BoolProperty(
-        name="rotation offset active", 
+        name="旋转偏移", 
         description="附加额外约束，从而在原变换结果的基础上进行额外的旋转", 
         update=update_rotoffs
     )
     has_loccopy: bpy.props.BoolProperty(
-        name="location copy active", 
+        name="位置映射", 
         description="附加额外约束，从而使目标骨骼跟随原骨骼的世界坐标运动，通常应用于根骨骼、武器等", 
         update=update_loccopy
     )
     has_ik: bpy.props.BoolProperty(
-        name="ik active",
+        name="IK",
         description="附加额外约束，从而使目标骨骼跟随原骨骼进行IK矫正，通常应用于手掌、脚掌",
         update=update_ik
     )
     offset: bpy.props.FloatVectorProperty(
-        name="rotation offset", 
+        name="旋转偏移量", 
         description="世界坐标下复制旋转方向后，在本地坐标下进行的额外旋转偏移。通常只需要调整Y旋转", 
         min=-pi,
         max=pi,
@@ -97,15 +97,15 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         s = get_state()
 
         con = {
-            True:             self.get_cr,
-            self.has_rotoffs: self.get_rr,
-            self.has_loccopy: self.get_cp,
-            self.has_ik:      self.get_ik
+            self.get_cr: True,
+            self.get_rr: self.has_rotoffs,
+            self.get_cp: self.has_loccopy,
+            self.get_ik: self.has_ik
         }
 
         for key, value in con.items():
-            if key:
-                c = value()
+            if value:
+                c = key()
                 c.target = s.source
                 c.subtarget = self.source
 
@@ -118,15 +118,15 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
 
     def clear(self):
         con = {
-            True:             self.get_cr,
-            self.has_rotoffs: self.get_rr,
-            self.has_loccopy: self.get_cp,
-            self.has_ik:      self.get_ik
+            self.get_cr: True,
+            self.get_rr: self.has_rotoffs,
+            self.get_cp: self.has_loccopy,
+            self.get_ik: self.has_ik
         }
 
         for key, value in con.items():
-            if key:
-                self.remove(value())
+            if value:
+                self.remove(key())
     
     def remove(self, constraint):
         if not self.target_valid():
