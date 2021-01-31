@@ -74,17 +74,22 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         subtype='EULER',
         update=update_offset
     )
+    def con_list(self):
+        return {
+            self.get_cr: True,
+            self.get_rr: self.has_rotoffs,
+            self.get_cp: self.has_loccopy,
+            self.get_ik: self.has_ik
+        }
 
     def to_string(self):
         return
     
     def target_valid(self):
         return get_state().get_target_pose().bones.get(self.target)
-        # return (self.target != None and len(self.target) > 0)
 
     def source_valid(self):
         return get_state().get_source_pose().bones.get(self.source)
-        # return (self.source != None and len(self.source) > 0)
 
     def is_valid(self):
         return (self.target_valid() != None and self.source_valid() != None)
@@ -93,7 +98,6 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
     def apply(self):
         if not self.target_valid():
             return
-        # apply mapping into constraint
         s = get_state()
 
         con = {
@@ -103,7 +107,7 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             self.get_ik: self.has_ik
         }
 
-        for key, value in con.items():
+        for key, value in self.con_list().items():
             if value:
                 c = key()
                 c.target = s.source
@@ -124,7 +128,7 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             self.get_ik: self.has_ik
         }
 
-        for key, value in con.items():
+        for key, value in self.con_list().items():
             if value:
                 self.remove(key())
     
@@ -133,6 +137,11 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             return
         get_state().get_target_pose().bones.get(self.target).constraints.remove(constraint)
     
+    def mute(self, state):
+        for key, value in self.con_list().items():
+            if value:
+                key().mute = state
+
     def get_cr(self):
         if self.target_valid():
             tc = self.target_valid().constraints

@@ -101,7 +101,7 @@ class AddPresetBACMapping(AddPresetBase, bpy.types.Operator):
 
     # properties to store in the preset
     preset_values = [
-        "s.mappings",
+        "s.mappings"
     ]
 
     # where to store the preset
@@ -216,5 +216,6 @@ classes = (
     BAC_OT_SelectEditType,
     BAC_OT_ListAction,
     BAC_OT_ChildMapping,
-    BAC_OT_NameMapping
+    BAC_OT_NameMapping,
+    BAC_OT_RigfyMapping
     )

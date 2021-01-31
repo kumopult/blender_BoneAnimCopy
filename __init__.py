@@ -15,8 +15,8 @@ bl_info = {
     "name" : "Bone Animation Copy Tool",
     "author" : "Kumopult <kumopult@qq.com>",
     "description" : "Copy animation between different armature by bone constrain",
-    "blender" : (2, 80, 0),
-    "version" : (0, 0, 1),
+    "blender" : (2, 83, 0),
+    "version" : (0, 0, 2),
     "location" : "View 3D > Toolshelf",
     "warning" : "因为作者很懒所以没写英文教学！",
     "category" : "Animation",
@@ -55,8 +55,12 @@ class BAC_PT_Panel(bpy.types.Panel):
                 row.label(text='使用预设:')
                 row.menu(mapping.BAC_MT_presets.__name__, text=mapping.BAC_MT_presets.bl_label)
                 row.operator(mapping.AddPresetBACMapping.bl_idname, text="", icon='ADD')
-                row.operator(mapping.AddPresetBACMapping.bl_idname, text="", icon='REMOVE').remove_active = True
+                row.operator(mapping.AddPresetBACMapping.bl_idname, text="", icon='REMOVE').remove_active=True
                 mapping.draw_panel(layout.box())
+                row = layout.row()
+                row.prop(s, 'preview', text='预览约束', icon= 'HIDE_OFF' if s.preview else 'HIDE_ON')
+                row.operator('nla.bake', text='烘培动画', icon='NLA').visual_keying=True
+
         else:
             layout.label(text='未选中骨架对象', icon='ERROR')
 
@@ -74,6 +78,12 @@ class BAC_State(bpy.types.PropertyGroup):
     
     editing_mappings: bpy.props.BoolProperty(default=False, description="展开详细编辑面板")
     editing_type: bpy.props.IntProperty(description="用于记录面板类型")
+
+    preview: bpy.props.BoolProperty(
+        default=True, 
+        description="开关所有约束以便预览烘培出的动画之类的",
+        update=lambda self, ctx: get_state().update_preview()
+    )
     
     def update_source(self):
         self.target = bpy.context.object
@@ -81,6 +91,10 @@ class BAC_State(bpy.types.PropertyGroup):
 
         for m in self.mappings:
             m.apply()
+    
+    def update_preview(self):
+        for m in self.mappings:
+            m.mute(not self.preview)
     
     def get_source_armature(self):
         return self.source.data
