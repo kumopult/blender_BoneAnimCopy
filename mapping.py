@@ -217,5 +217,4 @@ classes = (
     BAC_OT_ListAction,
     BAC_OT_ChildMapping,
     BAC_OT_NameMapping,
-    BAC_OT_RigfyMapping
     )
