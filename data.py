@@ -100,13 +100,6 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             return
         s = get_state()
 
-        con = {
-            self.get_cr: True,
-            self.get_rr: self.has_rotoffs,
-            self.get_cp: self.has_loccopy,
-            self.get_ik: self.has_ik
-        }
-
         for key, value in self.con_list().items():
             if value:
                 c = key()
@@ -121,13 +114,6 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
 
 
     def clear(self):
-        con = {
-            self.get_cr: True,
-            self.get_rr: self.has_rotoffs,
-            self.get_cp: self.has_loccopy,
-            self.get_ik: self.has_ik
-        }
-
         for key, value in self.con_list().items():
             if value:
                 self.remove(key())
@@ -138,6 +124,8 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         get_state().get_target_pose().bones.get(self.target).constraints.remove(constraint)
     
     def mute(self, state):
+        if not self.is_valid():
+            return
         for key, value in self.con_list().items():
             if value:
                 key().mute = state

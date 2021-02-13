@@ -59,7 +59,10 @@ class BAC_PT_Panel(bpy.types.Panel):
                 mapping.draw_panel(layout.box())
                 row = layout.row()
                 row.prop(s, 'preview', text='预览约束', icon= 'HIDE_OFF' if s.preview else 'HIDE_ON')
-                row.operator('nla.bake', text='烘培动画', icon='NLA').visual_keying=True
+                if s.target.select:
+                    row = layout.row()
+                    row.operator('kumopult_bac.bake', text='烘培动画', icon='NLA')
+                    row.operator('kumopult_bac.bake_collection', text='批量烘培动画', icon='NLA', )
 
         else:
             layout.label(text='未选中骨架对象', icon='ERROR')
@@ -84,6 +87,7 @@ class BAC_State(bpy.types.PropertyGroup):
         description="开关所有约束以便预览烘培出的动画之类的",
         update=lambda self, ctx: get_state().update_preview()
     )
+    source_collection: bpy.props.PointerProperty(type=bpy.types.Collection)
     
     def update_source(self):
         self.target = bpy.context.object

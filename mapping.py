@@ -1,6 +1,6 @@
 import bpy
 from bl_operators.presets import AddPresetBase
-from .utilfuncs import get_state, get_similar_bone
+from .utilfuncs import get_state, get_similar_bone, alert_error
 
 def draw_panel(layout):
     s = get_state()
@@ -208,6 +208,60 @@ class BAC_OT_NameMapping(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class BAC_OT_Bake(bpy.types.Operator):
+    bl_idname = 'kumopult_bac.bake'
+    bl_label = '烘培动画'
+    bl_description = '根据来源骨架上动作的帧范围将约束效果烘培为新的动作片段'
+
+    def execute(self, context):
+        s = get_state()
+        a = s.source.animation_data.action
+
+        if not a:
+            # 先确保源骨架上有动作
+            alert_error('源骨架上没有动作！', '确保有动作的情况下才能自动判断烘培的帧范围')
+            return {'FINISHED'}
+        else:
+            # 打开约束进行烘培再关掉
+            s.preview = True
+            bpy.ops.nla.bake(
+                frame_start=a.frame_range[0],
+                frame_end=a.frame_range[1],
+                only_selected=False,
+                visual_keying=True,
+                bake_types={'POSE'}
+            )
+            s.preview = False
+            #重命名动作、添加伪用户
+            s.target.animation_data.action.name = s.source.name
+            s.target.animation_data.action.use_fake_user = True
+            return {'FINISHED'}
+
+class BAC_OT_BakeCollection(bpy.types.Operator):
+    bl_idname = 'kumopult_bac.bake_collection'
+    bl_label = '批量烘培动画'
+    bl_description = '将来源骨架所在集合中所有骨架的动画批量烘培至来源骨骼上\n仅适用于所有来源骨架都可以套用同一套映射预设的情况！'
+
+    def execute(self, context):
+        s = get_state()
+
+        def get_collection(name):
+            # 查找指定名字的物体在哪个集合中
+            for c in bpy.data.collections:
+                if c.objects.get(name):
+                    return c
+            alert_error('找不到对象', '要查找的对象不在任一集合中！')
+        
+        for a in get_collection(s.source.name).objects:
+            if a.type != 'ARMATURE':
+                continue
+            s.selected_source = a
+            bpy.ops.kumopult_bac.bake()
+        
+        return {'FINISHED'}
+
+
+
 classes = (
     BAC_UL_mappings,
     BAC_MT_presets,
@@ -217,4 +271,6 @@ classes = (
     BAC_OT_ListAction,
     BAC_OT_ChildMapping,
     BAC_OT_NameMapping,
+    BAC_OT_Bake,
+    BAC_OT_BakeCollection,
     )
