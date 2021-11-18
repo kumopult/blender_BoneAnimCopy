@@ -16,7 +16,7 @@ bl_info = {
     "author" : "Kumopult <kumopult@qq.com>",
     "description" : "Copy animation between different armature by bone constrain",
     "blender" : (2, 83, 0),
-    "version" : (0, 0, 2),
+    "version" : (0, 0, 3),
     "location" : "View 3D > Toolshelf",
     "warning" : "因为作者很懒所以没写英文教学！",
     "category" : "Animation",
@@ -59,10 +59,10 @@ class BAC_PT_Panel(bpy.types.Panel):
                 mapping.draw_panel(layout.box())
                 row = layout.row()
                 row.prop(s, 'preview', text='预览约束', icon= 'HIDE_OFF' if s.preview else 'HIDE_ON')
-                if s.target.select:
-                    row = layout.row()
-                    row.operator('kumopult_bac.bake', text='烘培动画', icon='NLA')
-                    row.operator('kumopult_bac.bake_collection', text='批量烘培动画', icon='NLA', )
+                
+                row = layout.row()
+                row.operator('kumopult_bac.bake', text='烘培动画', icon='NLA')
+                row.operator('kumopult_bac.bake_collection', text='批量烘培动画', icon='NLA', )
 
         else:
             layout.label(text='未选中骨架对象', icon='ERROR')

@@ -214,8 +214,9 @@ class BAC_OT_Bake(bpy.types.Operator):
     bl_description = '根据来源骨架上动作的帧范围将约束效果烘培为新的动作片段'
 
     def execute(self, context):
+        bpy.context.object.select_set(True)
         s = get_state()
-        a = s.source.animation_data.action
+        a = s.source.animation_data
 
         if not a:
             # 先确保源骨架上有动作
@@ -225,8 +226,8 @@ class BAC_OT_Bake(bpy.types.Operator):
             # 打开约束进行烘培再关掉
             s.preview = True
             bpy.ops.nla.bake(
-                frame_start=a.frame_range[0],
-                frame_end=a.frame_range[1],
+                frame_start=a.action.frame_range[0],
+                frame_end=a.action.frame_range[1],
                 only_selected=False,
                 visual_keying=True,
                 bake_types={'POSE'}
