@@ -226,8 +226,8 @@ class BAC_OT_Bake(bpy.types.Operator):
             # 打开约束进行烘培再关掉
             s.preview = True
             bpy.ops.nla.bake(
-                frame_start=a.action.frame_range[0],
-                frame_end=a.action.frame_range[1],
+                frame_start=int(a.action.frame_range[0]),
+                frame_end=int(a.action.frame_range[1]),
                 only_selected=False,
                 visual_keying=True,
                 bake_types={'POSE'}
