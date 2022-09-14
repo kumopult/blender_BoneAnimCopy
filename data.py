@@ -156,8 +156,9 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             rr = tc.new(type='TRANSFORM')
             rr.name = 'BAC_ROT_ROLL'
             rr.map_to = 'ROTATION'
-            rr.owner_space = 'LOCAL'
-            rr.to_euler_order = 'YXZ'
+            rr.owner_space = 'CUSTOM'
+            rr.space_object = get_state().source
+            rr.space_subtarget = self.source
             rr.show_expanded = False
             rr.target = get_axes()
             return rr
