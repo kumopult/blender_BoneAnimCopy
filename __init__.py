@@ -45,10 +45,10 @@ class BAC_PT_Panel(bpy.types.Panel):
             split = layout.row().split(factor=0.25)
             split.column().label(text='映射目标:')
             split.column().label(text=context.object.name, icon='ARMATURE_DATA')
-            layout.prop(s, 'selected_source', text='动作来源', icon='ARMATURE_DATA')
+            layout.prop(s, 'selected_target', text='动作来源', icon='ARMATURE_DATA')
             layout.separator()
             
-            if s.source == None:
+            if s.target == None:
                 layout.label(text='选择另一骨架对象作为动作来源以继续操作', icon='INFO')
             else:
                 row = layout.row()
@@ -68,13 +68,13 @@ class BAC_PT_Panel(bpy.types.Panel):
             layout.label(text='未选中骨架对象', icon='ERROR')
 
 class BAC_State(bpy.types.PropertyGroup):
-    selected_source: bpy.props.PointerProperty(
+    selected_target: bpy.props.PointerProperty(
         type=bpy.types.Object,
         poll=lambda self, obj: obj.type == 'ARMATURE' and obj != bpy.context.object,
-        update=lambda self, ctx: get_state().update_source()
+        update=lambda self, ctx: get_state().update_target()
     )
-    source: bpy.props.PointerProperty(type=bpy.types.Object)
     target: bpy.props.PointerProperty(type=bpy.types.Object)
+    owner: bpy.props.PointerProperty(type=bpy.types.Object)
     
     mappings: bpy.props.CollectionProperty(type=data.BAC_BoneMapping)
     active_mapping: bpy.props.IntProperty(default=-1)
@@ -87,64 +87,64 @@ class BAC_State(bpy.types.PropertyGroup):
         description="开关所有约束以便预览烘培出的动画之类的",
         update=lambda self, ctx: get_state().update_preview()
     )
-    source_collection: bpy.props.PointerProperty(type=bpy.types.Collection)
+    target_collection: bpy.props.PointerProperty(type=bpy.types.Collection)
     
-    def update_source(self):
-        self.target = bpy.context.object
-        self.source = self.selected_source
+    def update_target(self):
+        self.owner = bpy.context.object
+        self.target = self.selected_target
 
         for m in self.mappings:
             m.apply()
     
     def update_preview(self):
         for m in self.mappings:
-            m.mute(not self.preview)
+            m.set_enable(self.preview)
     
-    def get_source_armature(self):
-        return self.source.data
-
     def get_target_armature(self):
         return self.target.data
-    
-    def get_source_pose(self):
-        return self.source.pose
 
+    def get_owner_armature(self):
+        return self.owner.data
+    
     def get_target_pose(self):
         return self.target.pose
+
+    def get_owner_pose(self):
+        return self.owner.pose
 
     def get_active_mapping(self):
         return self.mappings[self.active_mapping]
     
-    def get_mapping_by_source(self, name):
-        if name != "":
-            for i, m in enumerate(self.mappings):
-                if m.source == name:
-                    return m, i
-        return None, -1
-
     def get_mapping_by_target(self, name):
         if name != "":
             for i, m in enumerate(self.mappings):
                 if m.target == name:
                     return m, i
         return None, -1
+
+    def get_mapping_by_owner(self, name):
+        if name != "":
+            for i, m in enumerate(self.mappings):
+                if m.owner == name:
+                    return m, i
+        return None, -1
     
-    def add_mapping(self, target, source):
+    def add_mapping(self, owner, target):
         # 这里需要检测一下目标骨骼是否已存在映射
-        m, i = self.get_mapping_by_target(target)
+        m, i = self.get_mapping_by_owner(owner)
         # 若已存在，则覆盖原本的源骨骼，并返回映射和索引值
         if m:
             print("目标骨骼已存在映射关系，已覆盖修改源骨骼")
-            m.source = source
+            m.target = target
             return m, i
         # 若不存在，则新建映射，同样返回映射和索引值
         m = self.mappings.add()
-        m.selected_target = target
-        m.source = source
+        m.selected_owner = owner
+        m.target = target
         return m, len(self.mappings) - 1
     
-    def add_mapping_below(self, target, source):
-        i = self.add_mapping(target, source)[1]
+    def add_mapping_below(self, owner, target):
+        i = self.add_mapping(owner, target)[1]
         self.mappings.move(i, self.active_mapping + 1)
         self.active_mapping += 1
     

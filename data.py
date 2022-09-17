@@ -1,16 +1,16 @@
 import bpy
 from .utilfuncs import *
-from math import pi
 
 class BAC_BoneMapping(bpy.types.PropertyGroup):
-    def update_target(self, context):
+    def update_owner(self, context):
         # 更改自身骨骼，需要先清空旧的约束再生成新的约束
         self.clear()
-        self.target = self.selected_target
+        self.owner = self.selected_owner
         self.apply()
 
-    def update_source(self, context):
+    def update_target(self, context):
         # 更改来源骨骼，需要刷新约束上的目标
+        # calc_offset()
         self.apply()
     
     def update_rotoffs(self, context):
@@ -39,16 +39,16 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         rr.to_min_y_rot = self.offset[1]
         rr.to_min_z_rot = self.offset[2]
 
-    selected_target: bpy.props.StringProperty(
+    selected_owner: bpy.props.StringProperty(
         name="映射目标", 
         description="将对方骨骼的旋转复制到自身的哪根骨骼上？", 
-        update=update_target
+        update=update_owner
     )
-    target: bpy.props.StringProperty()
-    source: bpy.props.StringProperty(
+    owner: bpy.props.StringProperty()
+    target: bpy.props.StringProperty(
         name="动作来源", 
         description="从对方骨架中选择哪根骨骼作为动作来源？", 
-        update=update_source
+        update=update_target
     )
 
     has_rotoffs: bpy.props.BoolProperty(
@@ -74,6 +74,7 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         subtype='EULER',
         update=update_offset
     )
+
     def con_list(self):
         return {
             self.get_cr: True,
@@ -81,30 +82,28 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             self.get_cp: self.has_loccopy,
             self.get_ik: self.has_ik
         }
-
-    def to_string(self):
-        return
     
-    def target_valid(self):
+    def get_owner(self):
+        return get_state().get_owner_pose().bones.get(self.owner)
+
+    def get_target(self):
         return get_state().get_target_pose().bones.get(self.target)
 
-    def source_valid(self):
-        return get_state().get_source_pose().bones.get(self.source)
-
     def is_valid(self):
-        return (self.target_valid() != None and self.source_valid() != None)
+        return (self.get_owner() != None and self.get_target() != None)
     
 
     def apply(self):
-        if not self.target_valid():
-            return
+        # if not self.get_owner():
+        #     return
         s = get_state()
 
         for key, value in self.con_list().items():
             if value:
-                c = key()
-                c.target = s.source
-                c.subtarget = self.source
+                con = key()
+                con.target = s.target
+                con.subtarget = self.target
+                con.enabled = self.is_valid()
 
         if self.has_rotoffs:
             rr = self.get_rr()
@@ -119,85 +118,90 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
                 self.remove(key())
     
     def remove(self, constraint):
-        if not self.target_valid():
+        if not self.get_owner():
             return
-        get_state().get_target_pose().bones.get(self.target).constraints.remove(constraint)
+        # get_state().get_owner_pose().bones.get(self.owner).constraints.remove(constraint)
+        self.get_owner().constraints.remove(constraint)
     
-    def mute(self, state):
+    def set_enable(self, state):
         if not self.is_valid():
             return
         for key, value in self.con_list().items():
             if value:
-                key().mute = state
+                key().enabled = state
 
     def get_cr(self):
-        if self.target_valid():
-            tc = self.target_valid().constraints
+        if self.get_owner():
+            con = self.get_owner().constraints
         else:
             return None
         
         def new_cr():
-            cr = tc.new(type='COPY_ROTATION')
+            cr = con.new(type='COPY_ROTATION')
             cr.name = 'BAC_ROT_COPY'
             cr.show_expanded = False
-            cr.target = get_state().source
-            cr.subtarget = self.source
+            cr.target = get_state().target
+            cr.subtarget = self.target
+            cr.enabled = False
             return cr
         
-        return tc.get('BAC_ROT_COPY') or new_cr()
+        return con.get('BAC_ROT_COPY') or new_cr()
         
     def get_rr(self):
-        if self.target_valid():
-            tc = self.target_valid().constraints
+        if self.get_owner():
+            con = self.get_owner().constraints
         else:
             return None
         
         def new_rr():
-            rr = tc.new(type='TRANSFORM')
+            rr = con.new(type='TRANSFORM')
             rr.name = 'BAC_ROT_ROLL'
             rr.map_to = 'ROTATION'
             rr.owner_space = 'CUSTOM'
-            rr.space_object = get_state().source
-            rr.space_subtarget = self.source
+            rr.space_object = get_state().target
+            rr.space_subtarget = self.target
             rr.show_expanded = False
             rr.target = get_axes()
+            rr.enabled = False
             return rr
         
-        return tc.get('BAC_ROT_ROLL') or new_rr()
+        return con.get('BAC_ROT_ROLL') or new_rr()
         
     def get_cp(self):
-        if self.target_valid():
-            tc = self.target_valid().constraints
+        if self.get_owner():
+            con = self.get_owner().constraints
         else:
             return None
 
         def new_cp():
-            cp = tc.new(type='COPY_LOCATION')
+            cp = con.new(type='COPY_LOCATION')
             cp.name = 'BAC_LOC_COPY'
             cp.show_expanded = False
-            cp.target = get_state().source
-            cp.subtarget = self.source
+            cp.target = get_state().target
+            cp.subtarget = self.target
+            cp.enabled = False
             return cp
         
-        return tc.get('BAC_LOC_COPY') or new_cp()
+        return con.get('BAC_LOC_COPY') or new_cp()
 
     def get_ik(self):
-        if self.target_valid():
-            tc = self.target_valid().constraints
+        if self.get_owner():
+            con = self.get_owner().constraints
         else:
             return None
         
         def new_ik():
-            ik = tc.new(type='IK')
+            ik = con.new(type='IK')
             ik.name = 'BAC_IK'
             ik.show_expanded = False
-            ik.target = get_state().source
-            ik.subtarget = self.source
+            ik.target = get_state().target
+            ik.subtarget = self.target
             ik.chain_count = 2
             ik.use_tail = False
+            ik.enabled = False
             return ik
         
-        return tc.get('BAC_IK') or new_ik()
+        return con.get('BAC_IK') or new_ik()
 
 classes = (
 	BAC_BoneMapping,

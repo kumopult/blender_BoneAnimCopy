@@ -24,9 +24,9 @@ def draw_panel(layout):
     col.operator('kumopult_bac.child_mapping', icon='CON_CHILDOF', text='')
     col.operator('kumopult_bac.name_mapping', icon='CON_TRANSFORM_CACHE', text='')
 
-def add_mapping_below(target, source):
+def add_mapping_below(owner, target):
     s = get_state()
-    if not s.add_mapping(target, source):
+    if not s.add_mapping(owner, target):
         return
     s.mappings.move(len(s.mappings) - 1, s.active_mapping + 1)
     s.active_mapping += 1
@@ -35,23 +35,23 @@ class BAC_UL_mappings(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index, flt_flag):
         s = get_state()
         layout.alert = not item.is_valid() # 该mapping无效时警告
-        if not (item.target_valid() or item.source_valid()):
+        if not item.get_owner():
             layout.label(icon='ZOOM_IN')
-            layout.prop_search(item, 'selected_target', s.get_target_armature(), 'bones', text='')
+            layout.prop_search(item, 'selected_owner', s.get_owner_armature(), 'bones', text='')
         else:
             def mapping():
-                layout.prop_search(item, 'selected_target', s.get_target_armature(), 'bones', text='', icon='BONE_DATA')
+                layout.prop_search(item, 'selected_owner', s.get_owner_armature(), 'bones', text='', icon='BONE_DATA')
                 layout.label(icon='BACK')
-                layout.prop_search(item, 'source', s.get_source_armature(), 'bones', text='', icon='BONE_DATA')
+                layout.prop_search(item, 'target', s.get_target_armature(), 'bones', text='', icon='BONE_DATA')
             def rotation():
                 layout.prop(item, 'has_rotoffs', icon='CON_ROTLIKE', icon_only=True)
-                layout.label(text=item.selected_target)
+                layout.label(text=item.selected_owner)
                 layout.separator(factor=0.5)
                 if item.has_rotoffs:
                     layout.prop(item, 'offset', text='')
             def location():
                 layout.prop(item, 'has_loccopy', icon='CON_LOCLIKE', icon_only=True)
-                layout.label(text=item.selected_target)
+                layout.label(text=item.selected_owner)
                 layout.separator(factor=0.5)
                 if item.has_loccopy:
                     layout.prop(item.get_cp(), 'use_x', text='X', toggle=True)
@@ -59,7 +59,7 @@ class BAC_UL_mappings(bpy.types.UIList):
                     layout.prop(item.get_cp(), 'use_z', text='Z', toggle=True)
             def ik():
                 layout.prop(item, 'has_ik', icon='CON_KINEMATIC', icon_only=True)
-                layout.label(text=item.selected_target)
+                layout.label(text=item.selected_owner)
                 layout.separator(factor=0.1)
                 if item.has_ik:
                     layout.prop(item.get_ik(), 'influence')
@@ -129,7 +129,7 @@ class BAC_OT_ListAction(bpy.types.Operator):
         s = get_state()
 
         def add():
-            #这里需要加一下判断，如果有选中的骨骼则自动填入target
+            #这里需要加一下判断，如果有选中的骨骼则自动填入owner
             pb = bpy.context.selected_pose_bones_from_active_object
             if pb != None and len(pb) > 0:
                 for b in pb:
@@ -171,16 +171,16 @@ class BAC_OT_ChildMapping(bpy.types.Operator):
     def child_mapping(self):
         s = get_state()
         m = s.get_active_mapping()
-        source_children = s.get_source_armature().bones[m.source].children
         target_children = s.get_target_armature().bones[m.target].children
+        owner_children = s.get_owner_armature().bones[m.owner].children
         
-        if len(source_children) == len(target_children) == 1:
-            s.add_mapping_below(target_children[0].name, source_children[0].name)
+        if len(target_children) == len(owner_children) == 1:
+            s.add_mapping_below(owner_children[0].name, target_children[0].name)
             # 递归调用，实现连锁对应
             # self.child_mapping()
         else:
-            for i in range(0, len(target_children)):
-                s.add_mapping_below(target_children[i].name, '')
+            for i in range(0, len(owner_children)):
+                s.add_mapping_below(owner_children[i].name, '')
     
     def execute(self, context):
         s = get_state()
@@ -201,8 +201,8 @@ class BAC_OT_NameMapping(bpy.types.Operator):
         s = get_state()
         m = s.get_active_mapping()
 
-        if m.target_valid:
-            m.source = get_similar_bone(m.target, s.get_source_armature().bones)
+        if m.get_owner():
+            m.target = get_similar_bone(m.owner, s.get_target_armature().bones)
         else:
             self.report({"ERROR"}, "未选择目标骨骼")
 
@@ -216,7 +216,7 @@ class BAC_OT_Bake(bpy.types.Operator):
     def execute(self, context):
         bpy.context.object.select_set(True)
         s = get_state()
-        a = s.source.animation_data
+        a = s.target.animation_data
 
         if not a:
             # 先确保源骨架上有动作
@@ -234,8 +234,8 @@ class BAC_OT_Bake(bpy.types.Operator):
             )
             s.preview = False
             #重命名动作、添加伪用户
-            s.target.animation_data.action.name = s.source.name
-            s.target.animation_data.action.use_fake_user = True
+            s.owner.animation_data.action.name = s.target.name
+            s.owner.animation_data.action.use_fake_user = True
             return {'FINISHED'}
 
 class BAC_OT_BakeCollection(bpy.types.Operator):
@@ -253,10 +253,10 @@ class BAC_OT_BakeCollection(bpy.types.Operator):
                     return c
             alert_error('找不到对象', '要查找的对象不在任一集合中！')
         
-        for a in get_collection(s.source.name).objects:
+        for a in get_collection(s.target.name).objects:
             if a.type != 'ARMATURE':
                 continue
-            s.selected_source = a
+            s.selected_target = a
             bpy.ops.kumopult_bac.bake()
         
         return {'FINISHED'}
