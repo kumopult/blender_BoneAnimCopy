@@ -36,8 +36,8 @@ def calc_offset(owner, target):
         euler_offset = (owner.matrix @ target.matrix.inverted()).to_euler()
         step = pi * 0.5
         euler_offset[0] = round(euler_offset[0] / step) * step
-        euler_offset[0] = round(euler_offset[1] / step) * step
-        euler_offset[0] = round(euler_offset[2] / step) * step
+        euler_offset[1] = round(euler_offset[1] / step) * step
+        euler_offset[2] = round(euler_offset[2] / step) * step
         return euler_offset
     else:
         return None

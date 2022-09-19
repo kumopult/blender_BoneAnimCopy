@@ -9,8 +9,13 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         self.apply()
 
     def update_target(self, context):
-        # 更改来源骨骼，需要刷新约束上的目标
-        # calc_offset()
+        # 更改目标骨骼，需要刷新约束上的目标
+        euler_offset = calc_offset(self.get_owner(), self.get_target())
+        if euler_offset != None:
+            self.offset[0] = euler_offset[0]
+            self.offset[1] = euler_offset[1]
+            self.offset[2] = euler_offset[2]
+            self.has_rotoffs = True
         self.apply()
     
     def update_rotoffs(self, context):
@@ -40,14 +45,14 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         rr.to_min_z_rot = self.offset[2]
 
     selected_owner: bpy.props.StringProperty(
-        name="映射目标", 
+        name="自身骨骼", 
         description="将对方骨骼的旋转复制到自身的哪根骨骼上？", 
         update=update_owner
     )
     owner: bpy.props.StringProperty()
     target: bpy.props.StringProperty(
-        name="动作来源", 
-        description="从对方骨架中选择哪根骨骼作为动作来源？", 
+        name="约束目标", 
+        description="从对方骨架中选择哪根骨骼作为约束目标？", 
         update=update_target
     )
 
@@ -162,7 +167,7 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             rr.space_subtarget = self.target
             rr.show_expanded = False
             rr.target = get_axes()
-            rr.enabled = False
+            rr.enabled = get_state().preview
             return rr
         
         return con.get('BAC_ROT_ROLL') or new_rr()
@@ -179,7 +184,7 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             cp.show_expanded = False
             cp.target = get_state().target
             cp.subtarget = self.target
-            cp.enabled = False
+            cp.enabled = get_state().preview
             return cp
         
         return con.get('BAC_LOC_COPY') or new_cp()
@@ -198,7 +203,7 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             ik.subtarget = self.target
             ik.chain_count = 2
             ik.use_tail = False
-            ik.enabled = False
+            ik.enabled = get_state().preview
             return ik
         
         return con.get('BAC_IK') or new_ik()

@@ -43,13 +43,13 @@ class BAC_PT_Panel(bpy.types.Panel):
             s = get_state()
             
             split = layout.row().split(factor=0.25)
-            split.column().label(text='映射目标:')
+            split.column().label(text='映射骨架:')
             split.column().label(text=context.object.name, icon='ARMATURE_DATA')
-            layout.prop(s, 'selected_target', text='动作来源', icon='ARMATURE_DATA')
+            layout.prop(s, 'selected_target', text='约束目标', icon='ARMATURE_DATA')
             layout.separator()
             
             if s.target == None:
-                layout.label(text='选择另一骨架对象作为动作来源以继续操作', icon='INFO')
+                layout.label(text='选择另一骨架对象作为约束目标以继续操作', icon='INFO')
             else:
                 row = layout.row()
                 row.label(text='使用预设:')
