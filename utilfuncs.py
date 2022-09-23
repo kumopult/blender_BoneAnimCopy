@@ -47,3 +47,13 @@ def alert_error(title, message):
 		self.layout.label(text=message)
 
 	bpy.context.window_manager.popup_menu(draw, title=title, icon='ERROR')
+
+def bin_remove_at(bin, index):
+    mask  = (1 << (index)) - 1
+    left  = bin & ~ mask << 1
+    right = bin & mask
+    return (left >> 1) + right
+
+def bin_reverse_at(bin, index):
+    mask = 1 << index
+    return (bin & (~ mask)) | (bin ^ mask)

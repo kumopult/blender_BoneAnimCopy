@@ -78,6 +78,7 @@ class BAC_State(bpy.types.PropertyGroup):
     
     mappings: bpy.props.CollectionProperty(type=data.BAC_BoneMapping)
     active_mapping: bpy.props.IntProperty(default=-1)
+    selected_mapping:bpy.props.IntProperty(default=1) # 用二进制实现布尔数组
     
     editing_mappings: bpy.props.BoolProperty(default=False, description="展开详细编辑面板")
     editing_type: bpy.props.IntProperty(description="用于记录面板类型")

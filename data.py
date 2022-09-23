@@ -99,8 +99,8 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
     
 
     def apply(self):
-        # if not self.get_owner():
-        #     return
+        if not self.get_owner():
+            return
         s = get_state()
 
         for key, value in self.con_list().items():

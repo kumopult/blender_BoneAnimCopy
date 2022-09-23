@@ -1,6 +1,6 @@
 import bpy
 from bl_operators.presets import AddPresetBase
-from .utilfuncs import get_state, get_similar_bone, alert_error
+from .utilfuncs import get_state, get_similar_bone, alert_error, bin_reverse_at
 
 def draw_panel(layout):
     s = get_state()
@@ -34,35 +34,41 @@ def add_mapping_below(owner, target):
 class BAC_UL_mappings(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index, flt_flag):
         s = get_state()
+        selected = s.selected_mapping & (1 << index) != 0
         layout.alert = not item.is_valid() # 该mapping无效时警告
+        layout.active = selected or s.selected_mapping == 0
+        left  = layout.row(align=True)
+        right = layout.row(align=True)
+        right.alignment = 'RIGHT'
+        # 左侧为mapping信息
         if not item.get_owner():
-            layout.label(icon='ZOOM_IN')
-            layout.prop_search(item, 'selected_owner', s.get_owner_armature(), 'bones', text='')
+            left.label(icon='ZOOM_IN')
+            left.prop_search(item, 'selected_owner', s.get_owner_armature(), 'bones', text='')
         else:
             def mapping():
-                layout.prop_search(item, 'selected_owner', s.get_owner_armature(), 'bones', text='', icon='BONE_DATA')
-                layout.label(icon='BACK')
-                layout.prop_search(item, 'target', s.get_target_armature(), 'bones', text='', icon='BONE_DATA')
+                left.prop_search(item, 'selected_owner', s.get_owner_armature(), 'bones', text='', icon='BONE_DATA')
+                left.label(icon='BACK')
+                left.prop_search(item, 'target', s.get_target_armature(), 'bones', text='', icon='BONE_DATA')
             def rotation():
-                layout.prop(item, 'has_rotoffs', icon='CON_ROTLIKE', icon_only=True)
-                layout.label(text=item.selected_owner)
-                layout.separator(factor=0.5)
+                left.prop(item, 'has_rotoffs', icon='CON_ROTLIKE', icon_only=True)
+                left.label(text=item.selected_owner)
+                left.separator(factor=0.5)
                 if item.has_rotoffs:
-                    layout.prop(item, 'offset', text='')
+                    left.prop(item, 'offset', text='')
             def location():
-                layout.prop(item, 'has_loccopy', icon='CON_LOCLIKE', icon_only=True)
-                layout.label(text=item.selected_owner)
-                layout.separator(factor=0.5)
+                left.prop(item, 'has_loccopy', icon='CON_LOCLIKE', icon_only=True)
+                left.label(text=item.selected_owner)
+                left.separator(factor=0.5)
                 if item.has_loccopy:
-                    layout.prop(item.get_cp(), 'use_x', text='X', toggle=True)
-                    layout.prop(item.get_cp(), 'use_y', text='Y', toggle=True)
-                    layout.prop(item.get_cp(), 'use_z', text='Z', toggle=True)
+                    left.prop(item.get_cp(), 'use_x', text='X', toggle=True)
+                    left.prop(item.get_cp(), 'use_y', text='Y', toggle=True)
+                    left.prop(item.get_cp(), 'use_z', text='Z', toggle=True)
             def ik():
-                layout.prop(item, 'has_ik', icon='CON_KINEMATIC', icon_only=True)
-                layout.label(text=item.selected_owner)
-                layout.separator(factor=0.1)
+                left.prop(item, 'has_ik', icon='CON_KINEMATIC', icon_only=True)
+                left.label(text=item.selected_owner)
+                left.separator(factor=0.1)
                 if item.has_ik:
-                    layout.prop(item.get_ik(), 'influence')
+                    left.prop(item.get_ik(), 'influence')
             
             draw = {
                 0: mapping,
@@ -72,6 +78,9 @@ class BAC_UL_mappings(bpy.types.UIList):
             }
 
             draw[s.editing_type]()
+        # 右侧为选择按钮
+        right.operator('kumopult_bac.select_mapping', text='', emboss=False, icon='CHECKBOX_HLT' if selected else 'CHECKBOX_DEHLT').index = index
+        
 
     def draw_filter(self, context, layout):
         pass
@@ -111,11 +120,29 @@ class BAC_OT_SelectEditType(bpy.types.Operator):
     bl_idname = 'kumopult_bac.select_edit_type'
     bl_label = ''
     bl_description = '选择编辑列表类型'
+
     selected_type: bpy.props.IntProperty()
 
     def execute(self, context):
         s = get_state()
         s.editing_type = self.selected_type
+
+        return {'FINISHED'}
+
+class BAC_OT_SelectMapping(bpy.types.Operator):
+    bl_idname = 'kumopult_bac.select_mapping'
+    bl_label = ''
+    bl_description = ''
+
+    index: bpy.props.IntProperty()
+
+    def execute(self, context):
+        s = get_state()
+        if s.selected_mapping & (1 << self.index) == 0:
+            s.selected_mapping |= (1 << self.index)
+        else:
+            s.selected_mapping &= ~ (1 << self.index)
+        # s.selected_mapping = bin_reverse_at(s.selected_mapping, self.index)
 
         return {'FINISHED'}
 
@@ -269,6 +296,7 @@ classes = (
     AddPresetBACMapping,
     
     BAC_OT_SelectEditType,
+    BAC_OT_SelectMapping,
     BAC_OT_ListAction,
     BAC_OT_ChildMapping,
     BAC_OT_NameMapping,
