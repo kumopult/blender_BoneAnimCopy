@@ -103,12 +103,15 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             return
         s = get_state()
 
-        for key, value in self.con_list().items():
-            if value:
-                con = key()
+        for get_con, has_con in self.con_list().items():
+            if has_con:
+                con = get_con()
                 con.target = s.target
                 con.subtarget = self.target
-                con.enabled = self.is_valid()
+                if bpy.app.version >= (3, 0, 0):
+                    con.enabled = self.is_valid()
+                else:
+                    con.mute = not self.is_valid()
 
         if self.has_rotoffs:
             rr = self.get_rr()
@@ -118,9 +121,9 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
 
 
     def clear(self):
-        for key, value in self.con_list().items():
-            if value:
-                self.remove(key())
+        for get_con, has_con in self.con_list().items():
+            if has_con:
+                self.remove(get_con())
     
     def remove(self, constraint):
         if not self.get_owner():
@@ -131,9 +134,12 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
     def set_enable(self, state):
         if not self.is_valid():
             return
-        for key, value in self.con_list().items():
-            if value:
-                key().enabled = state
+        for get_con, has_con in self.con_list().items():
+            if has_con:
+                if bpy.app.version >= (3, 0, 0):
+                    get_con().enabled = state
+                else:
+                    get_con().mute = not state
 
     def get_cr(self):
         if self.get_owner():
@@ -147,7 +153,10 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             cr.show_expanded = False
             cr.target = get_state().target
             cr.subtarget = self.target
-            cr.enabled = False
+            if bpy.app.version >= (3, 0, 0):
+                cr.enabled = self.is_valid()
+            else:
+                cr.mute = not self.is_valid()
             return cr
         
         return con.get('BAC_ROT_COPY') or new_cr()
@@ -167,7 +176,10 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             rr.space_subtarget = self.target
             rr.show_expanded = False
             rr.target = get_axes()
-            rr.enabled = get_state().preview
+            if bpy.app.version >= (3, 0, 0):
+                rr.enabled = self.is_valid()
+            else:
+                rr.mute = not self.is_valid()
             return rr
         
         return con.get('BAC_ROT_ROLL') or new_rr()
@@ -184,7 +196,10 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             cp.show_expanded = False
             cp.target = get_state().target
             cp.subtarget = self.target
-            cp.enabled = get_state().preview
+            if bpy.app.version >= (3, 0, 0):
+                cp.enabled = self.is_valid()
+            else:
+                cp.mute = not self.is_valid()
             return cp
         
         return con.get('BAC_LOC_COPY') or new_cp()
@@ -203,7 +218,10 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             ik.subtarget = self.target
             ik.chain_count = 2
             ik.use_tail = False
-            ik.enabled = get_state().preview
+            if bpy.app.version >= (3, 0, 0):
+                ik.enabled = self.is_valid()
+            else:
+                ik.mute = not self.is_valid()
             return ik
         
         return con.get('BAC_IK') or new_ik()
