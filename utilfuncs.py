@@ -48,12 +48,24 @@ def alert_error(title, message):
 
 	bpy.context.window_manager.popup_menu(draw, title=title, icon='ERROR')
 
+# 二进制相关操作
+def bin_insert_at(bin, index):
+    mask  = (1 << (index)) - 1
+    left  = bin & ~ mask
+    right = bin & mask
+    return (left << 1) | right
+
 def bin_remove_at(bin, index):
     mask  = (1 << (index)) - 1
     left  = bin & ~ mask << 1
     right = bin & mask
-    return (left >> 1) + right
+    return (left >> 1) | right
 
-def bin_reverse_at(bin, index):
-    mask = 1 << index
-    return (bin & (~ mask)) | (bin ^ mask)
+# def bin_reverse_at(bin, index):
+#     mask = 1 << index
+#     return (bin & (~ mask)) | (bin ^ mask)
+
+def bin_exchange_at(bin, x, y):
+    ret = bin & (~(1 << x)) & (~(1 << y))
+    ret = ret | (((bin >> y) & 1) << x) | (((bin >> x) & 1) << y)
+    return ret

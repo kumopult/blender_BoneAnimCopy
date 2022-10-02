@@ -43,20 +43,24 @@ class BAC_PT_Panel(bpy.types.Panel):
             s = get_state()
             
             split = layout.row().split(factor=0.25)
-            split.column().label(text='映射骨架:')
-            split.column().label(text=context.object.name, icon='ARMATURE_DATA')
-            layout.prop(s, 'selected_target', text='约束目标', icon='ARMATURE_DATA')
-            layout.separator()
+            left = split.column()
+            right = split.column()
+            left.label(text='映射骨架:')
+            left.label(text='约束目标:')
+            right.label(text=context.object.name, icon='ARMATURE_DATA')
+            right.prop(s, 'selected_target', text='', icon='ARMATURE_DATA')
             
             if s.target == None:
                 layout.label(text='选择另一骨架对象作为约束目标以继续操作', icon='INFO')
             else:
-                row = layout.row()
-                row.label(text='使用预设:')
-                row.menu(mapping.BAC_MT_presets.__name__, text=mapping.BAC_MT_presets.bl_label)
-                row.operator(mapping.AddPresetBACMapping.bl_idname, text="", icon='ADD')
-                row.operator(mapping.AddPresetBACMapping.bl_idname, text="", icon='REMOVE').remove_active=True
-                mapping.draw_panel(layout.box())
+                # row = layout.row()
+                # split = row.split(factor=0.25)
+                # split.row().label(text='使用预设:')
+                # right = split.row(align=True)
+                # right.menu(mapping.BAC_MT_presets.__name__, text=mapping.BAC_MT_presets.bl_label)
+                # right.operator(mapping.AddPresetBACMapping.bl_idname, text="", icon='ADD')
+                # right.operator(mapping.AddPresetBACMapping.bl_idname, text="", icon='REMOVE').remove_active=True
+                mapping.draw_panel(layout.row())
                 row = layout.row()
                 row.prop(s, 'preview', text='预览约束', icon= 'HIDE_OFF' if s.preview else 'HIDE_ON')
                 
@@ -142,16 +146,33 @@ class BAC_State(bpy.types.PropertyGroup):
         m = self.mappings.add()
         m.selected_owner = owner
         m.target = target
-        return m, len(self.mappings) - 1
-    
-    def add_mapping_below(self, owner, target):
-        i = self.add_mapping(owner, target)[1]
-        self.mappings.move(i, self.active_mapping + 1)
+        # return m, len(self.mappings) - 1
         self.active_mapping += 1
+        self.mappings.move(len(self.mappings) - 1, self.active_mapping)
+        # 选中状态更新
+        self.selected_mapping = bin_insert_at(self.selected_mapping, self.active_mapping)
     
-    def remove_mapping(self, index):
-        self.mappings[index].clear()
-        self.mappings.remove(index)
+    # def add_mapping_below(self, owner, target):
+    #     i = self.add_mapping(owner, target)[1]
+    #     self.mappings.move(i, self.active_mapping + 1)
+    #     self.active_mapping += 1
+    
+    def remove_mapping(self):
+        # 获取要删除的索引值列表，注意要逆序
+        remove_indices = []
+        if self.selected_mapping == 0:
+            remove_indices.append(self.active_mapping)
+            self.active_mapping = min(self.active_mapping, len(self.mappings) - 1)
+        else:
+            for i in range(len(self.mappings) - 1, -1, -1):
+                if (self.selected_mapping >> i) & 1 == 1:
+                    remove_indices.append(i)
+        # 获取列表后开始操作
+        for i in remove_indices:
+            self.mappings[i].clear()
+            self.mappings.remove(i)
+            # 选中状态更新
+            self.selected_mapping = bin_remove_at(self.selected_mapping, i)
 
 classes = (
 	BAC_PT_Panel, 
