@@ -64,6 +64,11 @@ def bin_remove_at(bin, index):
 # def bin_reverse_at(bin, index):
 #     mask = 1 << index
 #     return (bin & (~ mask)) | (bin ^ mask)
+def bin_reverse(bin, length):
+    reverse_bin = 0
+    for i in range(length):
+        reverse_bin |= ((bin >> i) & 1) << (length - i - 1)
+    return reverse_bin
 
 def bin_exchange_at(bin, x, y):
     ret = bin & (~(1 << x)) & (~(1 << y))

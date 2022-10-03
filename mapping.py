@@ -212,16 +212,43 @@ class BAC_OT_ListAction(bpy.types.Operator):
                 s.remove_mapping()
         
         def up():
-            if s.active_mapping > 0:
-                s.mappings.move(s.active_mapping, s.active_mapping - 1)
-                s.selected_mapping = bin_exchange_at(s.selected_mapping, s.active_mapping, s.active_mapping - 1)
-                s.active_mapping -= 1
+            move_indices = []
+            if s.selected_mapping == 0:
+                if len(s.mappings) > s.active_mapping > 0:
+                    move_indices.append(s.active_mapping)
+                    s.active_mapping -= 1
+            else:
+                # 10011011011111
+                # 10011011100000 (①+1)
+                # 10011011000000 (① & ②)
+                # 00000000111111 (① ^ ②)
+                # 01001101111111 ((③ >> 1) | (① & ④)) = ((③ >> 1) | (① ^ ③)))
+                move_bin = s.selected_mapping & (s.selected_mapping + 1)
+                for i in range(len(s.mappings)):
+                    if (move_bin >> i) & 1 == 1:
+                        move_indices.append(i)
+                s.selected_mapping = (move_bin >> 1) | (s.selected_mapping ^ move_bin)
+            
+            for i in move_indices:
+                s.mappings.move(i, i - 1)
         
         def down():
-            if len(s.mappings) > s.active_mapping + 1:
-                s.mappings.move(s.active_mapping, s.active_mapping + 1)
-                s.selected_mapping = bin_exchange_at(s.selected_mapping, s.active_mapping, s.active_mapping + 1)
-                s.active_mapping += 1
+            move_indices = []
+            if s.selected_mapping == 0:
+                if len(s.mappings) > s.active_mapping + 1 > 0:
+                    move_indices.append(s.active_mapping)
+                    s.active_mapping += 1
+            else:
+                length = len(s.mappings)
+                reverse_bin = bin_reverse(s.selected_mapping, length)
+                reverse_move_bin = reverse_bin & (reverse_bin + 1)
+                for i in range(length):
+                    if (reverse_move_bin >> i) & 1 == 1:
+                        move_indices.append(length - i - 1)
+                s.selected_mapping = bin_reverse((reverse_move_bin >> 1) | (reverse_bin ^ reverse_move_bin), length)
+            
+            for i in move_indices:
+                s.mappings.move(i, i + 1)
         
         ops = {
             'ADD': add,
