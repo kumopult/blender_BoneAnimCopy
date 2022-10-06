@@ -1,6 +1,7 @@
 import bpy
 from bl_operators.presets import AddPresetBase
 from .utilfuncs import *
+import difflib
 
 def draw_panel(layout):
     s = get_state()
@@ -17,10 +18,12 @@ def draw_panel(layout):
 
     box_right = box.row(align=True)
     box_right.alignment = 'RIGHT'
-    box_right.operator('kumopult_bac.select_action', text='', emboss=False, icon='UV_SYNC_SELECT').action = 'INVERSE'
-    if s.selected_mapping == (1 << len(s.mappings)) - 1:
+    if s.selected_count == len(s.mappings):
         box_right.operator('kumopult_bac.select_action', text='', emboss=False, icon='CHECKBOX_HLT').action = 'NONE'
     else:
+        if s.selected_count != 0:
+            # 反选按钮仅在选中部分时出现
+            box_right.operator('kumopult_bac.select_action', text='', emboss=False, icon='UV_SYNC_SELECT').action = 'INVERSE'
         box_right.operator('kumopult_bac.select_action', text='', emboss=False, icon='CHECKBOX_DEHLT').action = 'ALL'
 
     left.template_list('BAC_UL_mappings', '', s, 'mappings', s, 'active_mapping', rows=7)
@@ -36,14 +39,14 @@ def draw_panel(layout):
     right.separator()
     right.operator('kumopult_bac.child_mapping', icon='CON_CHILDOF', text='')
     right.operator('kumopult_bac.name_mapping', icon='CON_TRANSFORM_CACHE', text='')
+    right.operator('kumopult_bac.mirror_mapping', icon='MOD_MIRROR', text='')
 
 
 class BAC_UL_mappings(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index, flt_flag):
         s = get_state()
-        selected = s.selected_mapping & (1 << index) != 0
         layout.alert = not item.is_valid() # 该mapping无效时警告
-        layout.active = selected or s.selected_mapping == 0
+        layout.active = item.selected or s.selected_count == 0
         left  = layout.row(align=True)
         right = layout.row(align=True)
         right.alignment = 'RIGHT'
@@ -86,7 +89,7 @@ class BAC_UL_mappings(bpy.types.UIList):
 
             draw[s.editing_type]()
         # 右侧为选择按钮
-        right.operator('kumopult_bac.select_mapping', text='', emboss=False, icon='CHECKBOX_HLT' if selected else 'CHECKBOX_DEHLT').index = index
+        right.operator('kumopult_bac.select_mapping', text='', emboss=False, icon='CHECKBOX_HLT' if item.selected else 'CHECKBOX_DEHLT').index = index
         
 
     def draw_filter(self, context, layout):
@@ -122,6 +125,7 @@ class AddPresetBACMapping(AddPresetBase, bpy.types.Operator):
     # properties to store in the preset
     preset_values = [
         "s.mappings"
+        "s.selected_count"
     ]
 
     # where to store the preset
@@ -142,18 +146,14 @@ class BAC_OT_SelectEditType(bpy.types.Operator):
 
 class BAC_OT_SelectMapping(bpy.types.Operator):
     bl_idname = 'kumopult_bac.select_mapping'
-    bl_label = '选中'
+    bl_label = ''
     bl_description = ''
 
     index: bpy.props.IntProperty()
 
     def execute(self, context):
         s = get_state()
-        if s.selected_mapping & (1 << self.index) == 0:
-            s.selected_mapping |= (1 << self.index)
-        else:
-            s.selected_mapping &= ~ (1 << self.index)
-        # s.selected_mapping = bin_reverse_at(s.selected_mapping, self.index)
+        s.set_select(self.index, not s.mappings[self.index].selected)
 
         return {'FINISHED'}
 
@@ -168,13 +168,16 @@ class BAC_OT_SelectAction(bpy.types.Operator):
         s = get_state()
 
         def all():
-            s.selected_mapping = (1 << len(s.mappings)) - 1
+            for i in range(len(s.mappings)):
+                s.set_select(i, True)
         
         def inverse():
-            s.selected_mapping = ~(s.selected_mapping) & ((1 << len(s.mappings)) - 1)
+            for i in range(len(s.mappings)):
+                s.set_select(i, not s.mappings[i].selected)
 
         def none():
-            s.selected_mapping = 0
+            for i in range(len(s.mappings)):
+                s.set_select(i, False)
         
         ops = {
             'ALL': all,
@@ -213,42 +216,35 @@ class BAC_OT_ListAction(bpy.types.Operator):
         
         def up():
             move_indices = []
-            if s.selected_mapping == 0:
+            if s.selected_count == 0:
                 if len(s.mappings) > s.active_mapping > 0:
                     move_indices.append(s.active_mapping)
                     s.active_mapping -= 1
             else:
-                # 10011011011111
-                # 10011011100000 (①+1)
-                # 10011011000000 (① & ②)
-                # 00000000111111 (① ^ ②)
-                # 01001101111111 ((③ >> 1) | (① & ④)) = ((③ >> 1) | (① ^ ③)))
-                move_bin = s.selected_mapping & (s.selected_mapping + 1)
-                for i in range(len(s.mappings)):
-                    if (move_bin >> i) & 1 == 1:
+                for i in range(1, len(s.mappings)):
+                    if s.mappings[i].selected:
                         move_indices.append(i)
-                s.selected_mapping = (move_bin >> 1) | (s.selected_mapping ^ move_bin)
             
             for i in move_indices:
-                s.mappings.move(i, i - 1)
+                if not s.mappings[i - 1].selected:
+                    # 前一项未选中时才能前移
+                    s.mappings.move(i, i - 1)
         
         def down():
             move_indices = []
-            if s.selected_mapping == 0:
+            if s.selected_count == 0:
                 if len(s.mappings) > s.active_mapping + 1 > 0:
                     move_indices.append(s.active_mapping)
                     s.active_mapping += 1
             else:
-                length = len(s.mappings)
-                reverse_bin = bin_reverse(s.selected_mapping, length)
-                reverse_move_bin = reverse_bin & (reverse_bin + 1)
-                for i in range(length):
-                    if (reverse_move_bin >> i) & 1 == 1:
-                        move_indices.append(length - i - 1)
-                s.selected_mapping = bin_reverse((reverse_move_bin >> 1) | (reverse_bin ^ reverse_move_bin), length)
+                for i in range(len(s.mappings) - 2, -1, -1):
+                    if s.mappings[i].selected:
+                        move_indices.append(i)
             
             for i in move_indices:
-                s.mappings.move(i, i + 1)
+                if not s.mappings[i + 1].selected:
+                    # 后一项未选中时才能后移
+                    s.mappings.move(i, i + 1)
         
         ops = {
             'ADD': add,
@@ -264,45 +260,120 @@ class BAC_OT_ListAction(bpy.types.Operator):
 class BAC_OT_ChildMapping(bpy.types.Operator):
     bl_idname = 'kumopult_bac.child_mapping'
     bl_label = '子级映射'
-    bl_description = '在选中了某一对源和目标后，如果两者都仅有唯一的子级，则可以快捷地让这对子级建立新的映射关系'
+    bl_description = '如果选中映射的目标骨骼和自身骨骼都有且仅有唯一的子级，则在那两个子级间建立新的映射'
     
-    def child_mapping(self):
+    execute_flag: bpy.props.BoolProperty(default=False)
+
+    @classmethod
+    def poll(cls, context):
+        ret = True
         s = get_state()
-        m = s.get_active_mapping()
+        for i in s.get_selection():
+            if not s.mappings[i].is_valid():
+                ret = False
+        return ret
+    
+    def child_mapping(self, index):
+        s = get_state()
+        m = s.mappings[index]
+        s.set_select(index, False)
         target_children = s.get_target_armature().bones[m.target].children
         owner_children = s.get_owner_armature().bones[m.owner].children
         
         if len(target_children) == len(owner_children) == 1:
-            s.add_mapping(owner_children[0].name, target_children[0].name)
+            child_index = s.add_mapping(owner_children[0].name, target_children[0].name, index + 1)[1]
+            s.set_select(child_index, True)
+            self.execute_flag = True
             # 递归调用，实现连锁对应
             # self.child_mapping()
         else:
             for i in range(0, len(owner_children)):
-                s.add_mapping(owner_children[i].name, '')
+                child_index = s.add_mapping(owner_children[i].name, '', index + i + 1)[1]
+                s.set_select(child_index, True)
+                self.execute_flag = True
     
     def execute(self, context):
         s = get_state()
-        m = s.get_active_mapping()
-        if m.is_valid():
-            self.child_mapping()
-        else:
-            self.report({"ERROR"}, "所选映射不完整")
+        self.execute_flag = False
+        for i in s.get_selection():
+            self.child_mapping(i)
+        
+        if not self.execute_flag:
+            self.report({"ERROR"}, "所选项中没有可建立子级映射的映射")
             
         return {'FINISHED'}
 
 class BAC_OT_NameMapping(bpy.types.Operator):
     bl_idname = 'kumopult_bac.name_mapping'
     bl_label = '名称映射'
-    bl_description = '按照名称的相似程度来给目标骨骼自动寻找最接近的源骨骼，不怎么准，慎用'
+    bl_description = '按照名称的相似程度来给自身骨骼自动寻找最接近的目标骨骼'
+
+    @classmethod
+    def poll(cls, context):
+        ret = True
+        s = get_state()
+        for i in s.get_selection():
+            if s.mappings[i].get_owner() == None:
+                ret = False
+        return ret
+
+    def get_similar_bone(self, owner_name, target_bones):
+        similar_name = ''
+        similar_ratio = 0
+
+        for target in target_bones:
+            r = difflib.SequenceMatcher(None, owner_name, target.name).quick_ratio()
+            if r > similar_ratio:
+                similar_ratio = r
+                similar_name = target.name
+        
+        return similar_name
 
     def execute(self, context):
         s = get_state()
-        m = s.get_active_mapping()
 
-        if m.get_owner():
-            m.target = get_similar_bone(m.owner, s.get_target_armature().bones)
-        else:
-            self.report({"ERROR"}, "未选择目标骨骼")
+        for i in s.get_selection():
+            m = s.mappings[i]
+            m.target = self.get_similar_bone(m.owner, s.get_target_armature().bones)
+
+        return {'FINISHED'}
+
+class BAC_OT_MirrorMapping(bpy.types.Operator):
+    bl_idname = 'kumopult_bac.mirror_mapping'
+    bl_label = '镜像映射'
+    bl_description = '如果选中映射的目标骨骼和自身骨骼都有与之对称的骨骼，则在那两个对称骨骼间建立新的映射'
+
+    execute_flag: bpy.props.BoolProperty(default=False)
+
+    @classmethod
+    def poll(cls, context):
+        ret = True
+        s = get_state()
+        for i in s.get_selection():
+            if not s.mappings[i].is_valid():
+                ret = False
+        return ret
+
+    def mirror_mapping(self, index):
+        s = get_state()
+        m = s.mappings[index]
+        s.set_select(index, False)
+        owner_mirror = s.get_owner_pose().bones.get(bpy.utils.flip_name(m.owner))
+        target_mirror = s.get_target_pose().bones.get(bpy.utils.flip_name(m.target))
+        if owner_mirror != None and target_mirror != None:
+            self.execute_flag = True
+            mirror_index = s.add_mapping(owner_mirror.name, target_mirror.name, index=index + 1)[1]
+            s.set_select(mirror_index, True)
+
+    def execute(self, context):
+        s = get_state()
+        self.execute_flag = False
+
+        for i in s.get_selection():
+            self.mirror_mapping(i)
+        
+        if not self.execute_flag:
+            self.report({"ERROR"}, "所选项中没有可镜像的映射")
 
         return {'FINISHED'}
 
@@ -372,6 +443,7 @@ classes = (
     BAC_OT_ListAction,
     BAC_OT_ChildMapping,
     BAC_OT_NameMapping,
+    BAC_OT_MirrorMapping,
     BAC_OT_Bake,
     BAC_OT_BakeCollection,
     )

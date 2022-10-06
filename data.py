@@ -79,6 +79,8 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         subtype='EULER',
         update=update_offset
     )
+    
+    selected: bpy.props.BoolProperty()
 
     def con_list(self):
         return {

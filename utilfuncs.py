@@ -1,5 +1,4 @@
 import bpy
-import difflib
 from math import pi
 
 def get_state():
@@ -13,23 +12,6 @@ def get_axes():
         return axes
     
     return bpy.data.objects.get('BAC_AXES') or new_axes()
-
-def get_similar_bone(owner_name, target_bones):
-    similar_name = ''
-    similar_ratio = 0
-
-    for target in target_bones:
-        r = difflib.SequenceMatcher(None, owner_name, target.name).quick_ratio()
-        if r > similar_ratio:
-            similar_ratio = r
-            similar_name = target.name
-    
-    return similar_name
-
-def get_mirror_bone_by_location(bone):
-    if type(bone) == str:
-        bone = get_state().get_owner_armature().get(bone)
-    return None
 
 def calc_offset(owner, target):
     if owner != None and target != None:
@@ -49,28 +31,34 @@ def alert_error(title, message):
 	bpy.context.window_manager.popup_menu(draw, title=title, icon='ERROR')
 
 # 二进制相关操作
-def bin_insert_at(bin, index):
-    mask  = (1 << (index)) - 1
-    left  = bin & ~ mask
-    right = bin & mask
-    return (left << 1) | right
+# def bin_set_at(bin, index, value):
+#     if value:
+#         return bin | (1 << index)
+#     else:
+#         return bin & ~(1 << index)
 
-def bin_remove_at(bin, index):
-    mask  = (1 << (index)) - 1
-    left  = bin & ~ mask << 1
-    right = bin & mask
-    return (left >> 1) | right
+# def bin_insert_at(bin, index, value=0):
+#     mask  = (1 << (index)) - 1
+#     left  = bin & ~ mask
+#     right = bin & mask
+#     return (left << 1) | right | (value << index)
+
+# def bin_remove_at(bin, index):
+#     mask  = (1 << (index)) - 1
+#     left  = bin & ~ mask << 1
+#     right = bin & mask
+#     return (left >> 1) | right
 
 # def bin_reverse_at(bin, index):
 #     mask = 1 << index
 #     return (bin & (~ mask)) | (bin ^ mask)
-def bin_reverse(bin, length):
-    reverse_bin = 0
-    for i in range(length):
-        reverse_bin |= ((bin >> i) & 1) << (length - i - 1)
-    return reverse_bin
+# def bin_reverse(bin, length):
+#     reverse_bin = 0
+#     for i in range(length):
+#         reverse_bin |= ((bin >> i) & 1) << (length - i - 1)
+#     return reverse_bin
 
-def bin_exchange_at(bin, x, y):
-    ret = bin & (~(1 << x)) & (~(1 << y))
-    ret = ret | (((bin >> y) & 1) << x) | (((bin >> x) & 1) << y)
-    return ret
+# def bin_exchange_at(bin, x, y):
+#     ret = bin & (~(1 << x)) & (~(1 << y))
+#     ret = ret | (((bin >> y) & 1) << x) | (((bin >> x) & 1) << y)
+#     return ret

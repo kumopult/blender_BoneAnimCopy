@@ -82,9 +82,9 @@ class BAC_State(bpy.types.PropertyGroup):
     
     mappings: bpy.props.CollectionProperty(type=data.BAC_BoneMapping)
     active_mapping: bpy.props.IntProperty(default=-1)
-    selected_mapping:bpy.props.IntProperty(default=1) # 用二进制实现布尔数组
+    selected_count:bpy.props.IntProperty(default=0)
     
-    editing_mappings: bpy.props.BoolProperty(default=False, description="展开详细编辑面板")
+    # editing_mappings: bpy.props.BoolProperty(default=False, description="展开详细编辑面板")
     editing_type: bpy.props.IntProperty(description="用于记录面板类型")
 
     preview: bpy.props.BoolProperty(
@@ -134,45 +134,51 @@ class BAC_State(bpy.types.PropertyGroup):
                     return m, i
         return None, -1
     
-    def add_mapping(self, owner, target):
+    def set_select(self, index, select):
+        if self.mappings[index].selected != select:
+            self.selected_count += 1 if select else -1
+            self.mappings[index].selected = select
+
+    def get_selection(self):
+        indices = []
+
+        if self.selected_count == 0 and len(self.mappings) > self.active_mapping >= 0:
+            indices.append(self.active_mapping)
+        else:
+            for i in range(len(self.mappings) - 1, -1, -1):
+                if self.mappings[i].selected:
+                    indices.append(i)
+        return indices
+    
+    def add_mapping(self, owner, target, index=-1):
+        # 未传入index时，以激活项作为index
+        if index == -1:
+            self.active_mapping += 1
+            index = self.active_mapping
         # 这里需要检测一下目标骨骼是否已存在映射
         m, i = self.get_mapping_by_owner(owner)
-        # 若已存在，则覆盖原本的源骨骼，并返回映射和索引值
         if m:
+            # 若已存在，则覆盖原本的源骨骼，并返回映射和索引值
             print("目标骨骼已存在映射关系，已覆盖修改源骨骼")
             m.target = target
             return m, i
-        # 若不存在，则新建映射，同样返回映射和索引值
-        m = self.mappings.add()
-        m.selected_owner = owner
-        m.target = target
-        # return m, len(self.mappings) - 1
-        self.active_mapping += 1
-        self.mappings.move(len(self.mappings) - 1, self.active_mapping)
-        # 选中状态更新
-        self.selected_mapping = bin_insert_at(self.selected_mapping, self.active_mapping)
-    
-    # def add_mapping_below(self, owner, target):
-    #     i = self.add_mapping(owner, target)[1]
-    #     self.mappings.move(i, self.active_mapping + 1)
-    #     self.active_mapping += 1
+        else:
+            # 若不存在，则新建映射，同样返回映射和索引值
+            m = self.mappings.add()
+            m.selected_owner = owner
+            m.target = target
+            # return m, len(self.mappings) - 1
+            self.mappings.move(len(self.mappings) - 1, index)
+            return m, index
     
     def remove_mapping(self):
-        # 获取要删除的索引值列表，注意要逆序
-        remove_indices = []
-        if self.selected_mapping == 0:
-            remove_indices.append(self.active_mapping)
+        if self.selected_count == 0:
             self.active_mapping = min(self.active_mapping, len(self.mappings) - 1)
-        else:
-            for i in range(len(self.mappings) - 1, -1, -1):
-                if (self.selected_mapping >> i) & 1 == 1:
-                    remove_indices.append(i)
-        # 获取列表后开始操作
-        for i in remove_indices:
+        for i in self.get_selection():
             self.mappings[i].clear()
             self.mappings.remove(i)
-            # 选中状态更新
-            self.selected_mapping = bin_remove_at(self.selected_mapping, i)
+        # 选中状态更新
+        self.selected_count = 0
 
 classes = (
 	BAC_PT_Panel, 
