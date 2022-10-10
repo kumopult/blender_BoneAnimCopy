@@ -2,6 +2,7 @@ import bpy
 from bl_operators.presets import AddPresetBase
 from .utilfuncs import *
 import difflib
+import os
 
 def draw_panel(layout):
     s = get_state()
@@ -30,7 +31,7 @@ def draw_panel(layout):
 
     right = row.column(align=True)
     right.separator()
-    right.label(icon='HEART')
+    right.label(icon='BLANK1')
     right.separator()
     right.operator('kumopult_bac.list_action', icon='ADD', text='').action = 'ADD'
     right.operator('kumopult_bac.list_action', icon='REMOVE', text='').action = 'REMOVE'
@@ -89,14 +90,15 @@ class BAC_UL_mappings(bpy.types.UIList):
 
             draw[s.editing_type]()
         # 右侧为选择按钮
-        right.operator('kumopult_bac.select_mapping', text='', emboss=False, icon='CHECKBOX_HLT' if item.selected else 'CHECKBOX_DEHLT').index = index
+        # right.operator('kumopult_bac.select_mapping', text='', emboss=False, icon='CHECKBOX_HLT' if item.selected else 'CHECKBOX_DEHLT').index = index
+        right.prop(item, 'selected', text='', emboss=False, icon='CHECKBOX_HLT' if item.selected else 'CHECKBOX_DEHLT')
         
 
     def draw_filter(self, context, layout):
-        row = layout.row()
-        row.menu(BAC_MT_presets.__name__, text=BAC_MT_presets.bl_label, icon='PRESET')
-        row.operator(AddPresetBACMapping.bl_idname, text="", icon='ADD')
-        row.operator(AddPresetBACMapping.bl_idname, text="", icon='REMOVE').remove_active=True
+        s = get_state()
+        row = layout.box().row()
+        row.prop(s, 'calc_offset', text='自动旋转偏移')
+        row.prop(s, 'ortho_offset', text='正交')
         pass
 
     def filter_items(self, context, data, propname):
@@ -104,6 +106,39 @@ class BAC_UL_mappings(bpy.types.UIList):
         flt_neworder = []
 
         return flt_flags, flt_neworder
+
+
+class BAC_PT_SettingPanel(bpy.types.Panel):
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "BoneAnimCopy"
+    bl_label = "Advanced"
+    # bl_parent_id = "BAC_PT_Panel"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+
+        if context.object != None and context.object.type == 'ARMATURE':
+            s = get_state()
+            split = layout.box().split(factor=0.2)
+            split.label(text='预设', icon='PRESET')
+            row = split.row(align=True)
+            row.menu(BAC_MT_presets.__name__, text=BAC_MT_presets.bl_label)
+            row.operator(AddPresetBACMapping.bl_idname, text="", icon='ADD')
+            row.operator(AddPresetBACMapping.bl_idname, text="", icon='REMOVE').remove_active=True
+            row.separator()
+            row.operator('kumopult_bac.open_preset_folder', text="", icon='FILE_FOLDER')
+
+            split = layout.box().split(factor=0.2)
+            split.label(text='烘焙', icon='NLA')
+            row = split.row()
+            row.operator('kumopult_bac.bake', text='烘培动画')
+
+            split = layout.box().split(factor=0.2)
+            split.label(text='导出', icon='FILE_BLEND')
+            row = split.row()
+
 
 class BAC_MT_presets(bpy.types.Menu):
     bl_label = "Mapping预设"
@@ -130,6 +165,14 @@ class AddPresetBACMapping(AddPresetBase, bpy.types.Operator):
 
     # where to store the preset
     preset_subdir = "kumopult_bac"
+
+class BAC_OT_OpenPresetFolder(bpy.types.Operator):
+    bl_idname = 'kumopult_bac.open_preset_folder'
+    bl_label = '打开预设文件夹'
+
+    def execute(self, context):
+        os.system('explorer ' + bpy.utils.resource_path('USER') + '\scripts\presets\kumopult_bac')
+        return {'FINISHED'}
 
 class BAC_OT_SelectEditType(bpy.types.Operator):
     bl_idname = 'kumopult_bac.select_edit_type'
@@ -168,16 +211,24 @@ class BAC_OT_SelectAction(bpy.types.Operator):
         s = get_state()
 
         def all():
-            for i in range(len(s.mappings)):
-                s.set_select(i, True)
+            # for i in range(len(s.mappings)):
+            #     s.set_select(i, True)
+            for m in s.mappings:
+                m.selected = True
+            s.selected_count = len(s.mappings)
         
         def inverse():
-            for i in range(len(s.mappings)):
-                s.set_select(i, not s.mappings[i].selected)
+            # for i in range(len(s.mappings)):
+            #     s.set_select(i, not s.mappings[i].selected)
+            for m in s.mappings:
+                m.selected = not m.selected
 
         def none():
-            for i in range(len(s.mappings)):
-                s.set_select(i, False)
+            # for i in range(len(s.mappings)):
+            #     s.set_select(i, False)
+            for m in s.mappings:
+                m.selected = False
+            s.selected_count = 0
         
         ops = {
             'ALL': all,
@@ -380,7 +431,7 @@ class BAC_OT_MirrorMapping(bpy.types.Operator):
 class BAC_OT_Bake(bpy.types.Operator):
     bl_idname = 'kumopult_bac.bake'
     bl_label = '烘培动画'
-    bl_description = '根据来源骨架上动作的帧范围将约束效果烘培为新的动作片段'
+    bl_description = '根据来源骨架上动作的帧范围将约束效果烘培为新的动作片段\n本质上是在调用姿态=>动画=>烘焙动作这一方法,并自动设置一些参数\n注意这会让本插件所生成约束以外的约束也被烘焙,比如mmd刚体'
 
     def execute(self, context):
         bpy.context.object.select_set(True)
@@ -407,36 +458,14 @@ class BAC_OT_Bake(bpy.types.Operator):
             s.owner.animation_data.action.use_fake_user = True
             return {'FINISHED'}
 
-class BAC_OT_BakeCollection(bpy.types.Operator):
-    bl_idname = 'kumopult_bac.bake_collection'
-    bl_label = '批量烘培动画'
-    bl_description = '将来源骨架所在集合中所有骨架的动画批量烘培至来源骨骼上\n仅适用于所有来源骨架都可以套用同一套映射预设的情况！'
-
-    def execute(self, context):
-        s = get_state()
-
-        def get_collection(name):
-            # 查找指定名字的物体在哪个集合中
-            for c in bpy.data.collections:
-                if c.objects.get(name):
-                    return c
-            alert_error('找不到对象', '要查找的对象不在任一集合中！')
-        
-        for a in get_collection(s.target.name).objects:
-            if a.type != 'ARMATURE':
-                continue
-            s.selected_target = a
-            bpy.ops.kumopult_bac.bake()
-        
-        return {'FINISHED'}
-
-
 
 classes = (
+    BAC_PT_SettingPanel, 
     BAC_UL_mappings,
     BAC_MT_presets,
     AddPresetBACMapping,
-    
+
+    BAC_OT_OpenPresetFolder,
     BAC_OT_SelectEditType,
     BAC_OT_SelectMapping,
     BAC_OT_SelectAction,
@@ -445,5 +474,4 @@ classes = (
     BAC_OT_NameMapping,
     BAC_OT_MirrorMapping,
     BAC_OT_Bake,
-    BAC_OT_BakeCollection,
     )

@@ -63,13 +63,9 @@ class BAC_PT_Panel(bpy.types.Panel):
                 mapping.draw_panel(layout.row())
                 row = layout.row()
                 row.prop(s, 'preview', text='预览约束', icon= 'HIDE_OFF' if s.preview else 'HIDE_ON')
-                
-                row = layout.row()
-                row.operator('kumopult_bac.bake', text='烘培动画', icon='NLA')
-                row.operator('kumopult_bac.bake_collection', text='批量烘培动画', icon='NLA', )
-
         else:
             layout.label(text='未选中骨架对象', icon='ERROR')
+
 
 class BAC_State(bpy.types.PropertyGroup):
     selected_target: bpy.props.PointerProperty(
@@ -84,15 +80,14 @@ class BAC_State(bpy.types.PropertyGroup):
     active_mapping: bpy.props.IntProperty(default=-1)
     selected_count:bpy.props.IntProperty(default=0)
     
-    # editing_mappings: bpy.props.BoolProperty(default=False, description="展开详细编辑面板")
     editing_type: bpy.props.IntProperty(description="用于记录面板类型")
-
     preview: bpy.props.BoolProperty(
         default=True, 
         description="开关所有约束以便预览烘培出的动画之类的",
         update=lambda self, ctx: get_state().update_preview()
     )
-    target_collection: bpy.props.PointerProperty(type=bpy.types.Collection)
+    calc_offset: bpy.props.BoolProperty(default=True, description="设定映射目标时自动计算旋转偏移")
+    ortho_offset: bpy.props.BoolProperty(default=True, description="将计算结果近似至90°的倍数")
     
     def update_target(self):
         self.owner = bpy.context.object
@@ -134,10 +129,10 @@ class BAC_State(bpy.types.PropertyGroup):
                     return m, i
         return None, -1
     
-    def set_select(self, index, select):
-        if self.mappings[index].selected != select:
-            self.selected_count += 1 if select else -1
-            self.mappings[index].selected = select
+    # def set_select(self, index, select):
+    #     if self.mappings[index].selected != select:
+    #         self.selected_count += 1 if select else -1
+    #         self.mappings[index].selected = select
 
     def get_selection(self):
         indices = []

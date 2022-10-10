@@ -79,8 +79,11 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         subtype='EULER',
         update=update_offset
     )
+
+    def update_selected(self, context):
+        get_state().selected_count += 1 if self.selected else -1
     
-    selected: bpy.props.BoolProperty()
+    selected: bpy.props.BoolProperty(update=update_selected)
 
     def con_list(self):
         return {
