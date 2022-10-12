@@ -1,5 +1,7 @@
 import bpy
 from .utilfuncs import *
+from math import pi
+from mathutils import Matrix, Euler
 
 class BAC_BoneMapping(bpy.types.PropertyGroup):
     def update_owner(self, context):
@@ -10,12 +12,20 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
 
     def update_target(self, context):
         # 更改目标骨骼，需要刷新约束上的目标
-        euler_offset = calc_offset(self.get_owner(), self.get_target())
-        if euler_offset != None:
-            self.offset[0] = euler_offset[0]
-            self.offset[1] = euler_offset[1]
-            self.offset[2] = euler_offset[2]
-            self.has_rotoffs = True
+        s = get_state()
+        if self.is_valid() and s.calc_offset:
+            # 计算旋转偏移
+            euler_offset = (self.get_owner().matrix @ self.get_target().matrix.inverted()).to_euler()
+            if s.ortho_offset:
+                step = pi * 0.5
+                euler_offset[0] = round(euler_offset[0] / step) * step
+                euler_offset[1] = round(euler_offset[1] / step) * step
+                euler_offset[2] = round(euler_offset[2] / step) * step
+            if euler_offset != None or Euler.zero:
+                self.offset[0] = euler_offset[0]
+                self.offset[1] = euler_offset[1]
+                self.offset[2] = euler_offset[2]
+                self.has_rotoffs = True
         self.apply()
     
     def update_rotoffs(self, context):

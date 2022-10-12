@@ -10,29 +10,39 @@ def draw_panel(layout):
     row = layout.row()
     left = row.column_flow(columns=1, align=True)
     box = left.box().row()
-    box_left = box.row(align=False)
-    box_left.alignment = 'LEFT'
-    box_left.operator('kumopult_bac.select_edit_type', text='' if s.editing_type!=0 else '映射', icon='PRESET', emboss=True, depress=s.editing_type==0).selected_type = 0
-    box_left.operator('kumopult_bac.select_edit_type', text='' if s.editing_type!=1 else '旋转', icon='CON_ROTLIKE', emboss=True, depress=s.editing_type==1).selected_type = 1
-    box_left.operator('kumopult_bac.select_edit_type', text='' if s.editing_type!=2 else '位移', icon='CON_LOCLIKE', emboss=True, depress=s.editing_type==2).selected_type = 2
-    box_left.operator('kumopult_bac.select_edit_type', text='' if s.editing_type!=3 else 'ＩＫ', icon='CON_KINEMATIC', emboss=True, depress=s.editing_type==3).selected_type = 3
-
-    box_right = box.row(align=True)
+    # 全选/反选按钮
+    if s.editing_type == 0:
+        box_left = box.row(align=True)
+        if s.selected_count == len(s.mappings):
+            box_left.operator('kumopult_bac.select_action', text='', emboss=False, icon='CHECKBOX_HLT').action = 'NONE'
+        else:
+            box_left.operator('kumopult_bac.select_action', text='', emboss=False, icon='CHECKBOX_DEHLT').action = 'ALL'
+            if s.selected_count != 0:
+                # 反选按钮仅在选中部分时出现
+                box_left.operator('kumopult_bac.select_action', text='', emboss=False, icon='UV_SYNC_SELECT').action = 'INVERSE'
+    # 编辑模式切换
+    box_right = box.row(align=False)
     box_right.alignment = 'RIGHT'
-    if s.selected_count == len(s.mappings):
-        box_right.operator('kumopult_bac.select_action', text='', emboss=False, icon='CHECKBOX_HLT').action = 'NONE'
-    else:
-        if s.selected_count != 0:
-            # 反选按钮仅在选中部分时出现
-            box_right.operator('kumopult_bac.select_action', text='', emboss=False, icon='UV_SYNC_SELECT').action = 'INVERSE'
-        box_right.operator('kumopult_bac.select_action', text='', emboss=False, icon='CHECKBOX_DEHLT').action = 'ALL'
-
+    box_right.operator('kumopult_bac.select_edit_type', text='' if s.editing_type!=0 else '映射', icon='PRESET', emboss=True, depress=s.editing_type==0).selected_type = 0
+    box_right.operator('kumopult_bac.select_edit_type', text='' if s.editing_type!=1 else '旋转', icon='CON_ROTLIKE', emboss=True, depress=s.editing_type==1).selected_type = 1
+    box_right.operator('kumopult_bac.select_edit_type', text='' if s.editing_type!=2 else '位移', icon='CON_LOCLIKE', emboss=True, depress=s.editing_type==2).selected_type = 2
+    box_right.operator('kumopult_bac.select_edit_type', text='' if s.editing_type!=3 else 'ＩＫ', icon='CON_KINEMATIC', emboss=True, depress=s.editing_type==3).selected_type = 3
+    # 映射列表
     left.template_list('BAC_UL_mappings', '', s, 'mappings', s, 'active_mapping', rows=7)
+    # 预设菜单
+    box = left.box().row(align=True)
+    box.menu(BAC_MT_presets.__name__, text=BAC_MT_presets.bl_label, icon='PRESET')
+    box.operator(AddPresetBACMapping.bl_idname, text="", icon='ADD')
+    box.operator(AddPresetBACMapping.bl_idname, text="", icon='REMOVE').remove_active=True
+    box.separator()
+    box.operator('kumopult_bac.open_preset_folder', text="", icon='FILE_FOLDER')
 
     right = row.column(align=True)
     right.separator()
-    right.label(icon='BLANK1')
+    # 设置菜单
+    right.menu(BAC_MT_SettingMenu.__name__, text='', icon='DOWNARROW_HLT')
     right.separator()
+    # 列表操作按钮
     right.operator('kumopult_bac.list_action', icon='ADD', text='').action = 'ADD'
     right.operator('kumopult_bac.list_action', icon='REMOVE', text='').action = 'REMOVE'
     right.operator('kumopult_bac.list_action', icon='TRIA_UP', text='').action = 'UP'
@@ -48,57 +58,41 @@ class BAC_UL_mappings(bpy.types.UIList):
         s = get_state()
         layout.alert = not item.is_valid() # 该mapping无效时警告
         layout.active = item.selected or s.selected_count == 0
-        left  = layout.row(align=True)
-        right = layout.row(align=True)
-        right.alignment = 'RIGHT'
-        # 左侧为mapping信息
-        if not item.get_owner():
-            left.label(icon='ZOOM_IN')
-            left.prop_search(item, 'selected_owner', s.get_owner_armature(), 'bones', text='')
-        else:
-            def mapping():
-                left.prop_search(item, 'selected_owner', s.get_owner_armature(), 'bones', text='', icon='BONE_DATA')
-                left.label(icon='BACK')
-                left.prop_search(item, 'target', s.get_target_armature(), 'bones', text='', icon='BONE_DATA')
-            def rotation():
-                left.prop(item, 'has_rotoffs', icon='CON_ROTLIKE', icon_only=True)
-                left.label(text=item.selected_owner)
-                left.separator(factor=0.5)
-                if item.has_rotoffs:
-                    left.prop(item, 'offset', text='')
-            def location():
-                left.prop(item, 'has_loccopy', icon='CON_LOCLIKE', icon_only=True)
-                left.label(text=item.selected_owner)
-                left.separator(factor=0.5)
-                if item.has_loccopy:
-                    left.prop(item.get_cp(), 'use_x', text='X', toggle=True)
-                    left.prop(item.get_cp(), 'use_y', text='Y', toggle=True)
-                    left.prop(item.get_cp(), 'use_z', text='Z', toggle=True)
-            def ik():
-                left.prop(item, 'has_ik', icon='CON_KINEMATIC', icon_only=True)
-                left.label(text=item.selected_owner)
-                left.separator(factor=0.1)
-                if item.has_ik:
-                    left.prop(item.get_ik(), 'influence')
-            
-            draw = {
-                0: mapping,
-                1: rotation,
-                2: location,
-                3: ik
-            }
+        row  = layout.row(align=True)
 
-            draw[s.editing_type]()
-        # 右侧为选择按钮
-        # right.operator('kumopult_bac.select_mapping', text='', emboss=False, icon='CHECKBOX_HLT' if item.selected else 'CHECKBOX_DEHLT').index = index
-        right.prop(item, 'selected', text='', emboss=False, icon='CHECKBOX_HLT' if item.selected else 'CHECKBOX_DEHLT')
+        def mapping():
+            row.prop(item, 'selected', text='', emboss=False, icon='CHECKBOX_HLT' if item.selected else 'CHECKBOX_DEHLT')
+            row.prop_search(item, 'selected_owner', s.get_owner_armature(), 'bones', text='', icon='BONE_DATA')
+            row.label(icon='BACK')
+            row.prop_search(item, 'target', s.get_target_armature(), 'bones', text='', icon='BONE_DATA')
+        def rotation():
+            row.prop(item, 'has_rotoffs', icon='CON_ROTLIKE', icon_only=True)
+            layout.label(text=item.selected_owner)
+            if item.has_rotoffs:
+                layout.prop(item, 'offset', text='')
+        def location():
+            row.prop(item, 'has_loccopy', icon='CON_LOCLIKE', icon_only=True)
+            layout.label(text=item.selected_owner)
+            if item.has_loccopy:
+                layout.prop(item.get_cp(), 'use_x', text='X', toggle=True)
+                layout.prop(item.get_cp(), 'use_y', text='Y', toggle=True)
+                layout.prop(item.get_cp(), 'use_z', text='Z', toggle=True)
+        def ik():
+            row.prop(item, 'has_ik', icon='CON_KINEMATIC', icon_only=True)
+            layout.label(text=item.selected_owner)
+            if item.has_ik:
+                layout.prop(item.get_ik(), 'influence')
         
+        draw = {
+            0: mapping,
+            1: rotation,
+            2: location,
+            3: ik
+        }
+
+        draw[s.editing_type]()
 
     def draw_filter(self, context, layout):
-        s = get_state()
-        row = layout.box().row()
-        row.prop(s, 'calc_offset', text='自动旋转偏移')
-        row.prop(s, 'ortho_offset', text='正交')
         pass
 
     def filter_items(self, context, data, propname):
@@ -108,36 +102,14 @@ class BAC_UL_mappings(bpy.types.UIList):
         return flt_flags, flt_neworder
 
 
-class BAC_PT_SettingPanel(bpy.types.Panel):
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "BoneAnimCopy"
-    bl_label = "Advanced"
-    # bl_parent_id = "BAC_PT_Panel"
-    bl_options = {'DEFAULT_CLOSED'}
+class BAC_MT_SettingMenu(bpy.types.Menu):
+    bl_label = "Setting"
 
     def draw(self, context):
+        s = get_state()
         layout = self.layout
-
-        if context.object != None and context.object.type == 'ARMATURE':
-            s = get_state()
-            split = layout.box().split(factor=0.2)
-            split.label(text='预设', icon='PRESET')
-            row = split.row(align=True)
-            row.menu(BAC_MT_presets.__name__, text=BAC_MT_presets.bl_label)
-            row.operator(AddPresetBACMapping.bl_idname, text="", icon='ADD')
-            row.operator(AddPresetBACMapping.bl_idname, text="", icon='REMOVE').remove_active=True
-            row.separator()
-            row.operator('kumopult_bac.open_preset_folder', text="", icon='FILE_FOLDER')
-
-            split = layout.box().split(factor=0.2)
-            split.label(text='烘焙', icon='NLA')
-            row = split.row()
-            row.operator('kumopult_bac.bake', text='烘培动画')
-
-            split = layout.box().split(factor=0.2)
-            split.label(text='导出', icon='FILE_BLEND')
-            row = split.row()
+        layout.prop(s, 'calc_offset', text='自动旋转偏移')
+        layout.prop(s, 'ortho_offset', text='正交')
 
 
 class BAC_MT_presets(bpy.types.Menu):
@@ -211,21 +183,15 @@ class BAC_OT_SelectAction(bpy.types.Operator):
         s = get_state()
 
         def all():
-            # for i in range(len(s.mappings)):
-            #     s.set_select(i, True)
             for m in s.mappings:
                 m.selected = True
             s.selected_count = len(s.mappings)
         
         def inverse():
-            # for i in range(len(s.mappings)):
-            #     s.set_select(i, not s.mappings[i].selected)
             for m in s.mappings:
                 m.selected = not m.selected
 
         def none():
-            # for i in range(len(s.mappings)):
-            #     s.set_select(i, False)
             for m in s.mappings:
                 m.selected = False
             s.selected_count = 0
@@ -431,7 +397,7 @@ class BAC_OT_MirrorMapping(bpy.types.Operator):
 class BAC_OT_Bake(bpy.types.Operator):
     bl_idname = 'kumopult_bac.bake'
     bl_label = '烘培动画'
-    bl_description = '根据来源骨架上动作的帧范围将约束效果烘培为新的动作片段\n本质上是在调用姿态=>动画=>烘焙动作这一方法,并自动设置一些参数\n注意这会让本插件所生成约束以外的约束也被烘焙,比如mmd刚体'
+    bl_description = '根据来源骨架上动作的帧范围将约束效果烘培为新的动作片段\n本质上是在调用姿态=>动画=>烘焙动作这一方法,并自动设置一些参数\n注意这会让本插件所生成约束以外的约束也被烘焙'
 
     def execute(self, context):
         bpy.context.object.select_set(True)
@@ -460,8 +426,8 @@ class BAC_OT_Bake(bpy.types.Operator):
 
 
 classes = (
-    BAC_PT_SettingPanel, 
     BAC_UL_mappings,
+    BAC_MT_SettingMenu, 
     BAC_MT_presets,
     AddPresetBACMapping,
 

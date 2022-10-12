@@ -42,7 +42,7 @@ class BAC_PT_Panel(bpy.types.Panel):
         if context.object != None and context.object.type == 'ARMATURE':
             s = get_state()
             
-            split = layout.row().split(factor=0.25)
+            split = layout.row().split(factor=0.2)
             left = split.column()
             right = split.column()
             left.label(text='映射骨架:')
@@ -53,16 +53,10 @@ class BAC_PT_Panel(bpy.types.Panel):
             if s.target == None:
                 layout.label(text='选择另一骨架对象作为约束目标以继续操作', icon='INFO')
             else:
-                # row = layout.row()
-                # split = row.split(factor=0.25)
-                # split.row().label(text='使用预设:')
-                # right = split.row(align=True)
-                # right.menu(mapping.BAC_MT_presets.__name__, text=mapping.BAC_MT_presets.bl_label)
-                # right.operator(mapping.AddPresetBACMapping.bl_idname, text="", icon='ADD')
-                # right.operator(mapping.AddPresetBACMapping.bl_idname, text="", icon='REMOVE').remove_active=True
                 mapping.draw_panel(layout.row())
                 row = layout.row()
                 row.prop(s, 'preview', text='预览约束', icon= 'HIDE_OFF' if s.preview else 'HIDE_ON')
+                row.operator('kumopult_bac.bake', text='烘培动画', icon='NLA')
         else:
             layout.label(text='未选中骨架对象', icon='ERROR')
 
@@ -128,11 +122,6 @@ class BAC_State(bpy.types.PropertyGroup):
                 if m.owner == name:
                     return m, i
         return None, -1
-    
-    # def set_select(self, index, select):
-    #     if self.mappings[index].selected != select:
-    #         self.selected_count += 1 if select else -1
-    #         self.mappings[index].selected = select
 
     def get_selection(self):
         indices = []
@@ -154,7 +143,6 @@ class BAC_State(bpy.types.PropertyGroup):
         m, i = self.get_mapping_by_owner(owner)
         if m:
             # 若已存在，则覆盖原本的源骨骼，并返回映射和索引值
-            print("目标骨骼已存在映射关系，已覆盖修改源骨骼")
             m.target = target
             return m, i
         else:
