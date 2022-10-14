@@ -131,7 +131,7 @@ class AddPresetBACMapping(AddPresetBase, bpy.types.Operator):
 
     # properties to store in the preset
     preset_values = [
-        "s.mappings"
+        "s.mappings",
         "s.selected_count"
     ]
 

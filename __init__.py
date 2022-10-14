@@ -155,11 +155,11 @@ class BAC_State(bpy.types.PropertyGroup):
             return m, index
     
     def remove_mapping(self):
-        if self.selected_count == 0:
-            self.active_mapping = min(self.active_mapping, len(self.mappings) - 1)
         for i in self.get_selection():
             self.mappings[i].clear()
             self.mappings.remove(i)
+        if self.selected_count == 0:
+            self.active_mapping = min(self.active_mapping, len(self.mappings) - 1)
         # 选中状态更新
         self.selected_count = 0
 
