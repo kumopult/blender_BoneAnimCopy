@@ -47,8 +47,8 @@ class BAC_PT_Panel(bpy.types.Panel):
             right = split.column()
             left.label(text='映射骨架:')
             left.label(text='约束目标:')
-            right.label(text=context.object.name, icon='ARMATURE_DATA')
-            right.prop(s, 'selected_target', text='', icon='ARMATURE_DATA')
+            right.label(text=context.object.name, icon='ARMATURE_DATA', translate=False)
+            right.prop(s, 'selected_target', text='', icon='ARMATURE_DATA', translate=False)
             
             if s.target == None:
                 layout.label(text='选择另一骨架对象作为约束目标以继续操作', icon='INFO')
@@ -152,7 +152,7 @@ class BAC_State(bpy.types.PropertyGroup):
             m.target = target
             # return m, len(self.mappings) - 1
             self.mappings.move(len(self.mappings) - 1, index)
-            return m, index
+            return self.mappings[index], index
     
     def remove_mapping(self):
         for i in self.get_selection():

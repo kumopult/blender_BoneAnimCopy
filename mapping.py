@@ -1,3 +1,6 @@
+from fnmatch import translate
+
+from numpy import true_divide
 import bpy
 from bl_operators.presets import AddPresetBase
 from .utilfuncs import *
@@ -31,7 +34,7 @@ def draw_panel(layout):
     left.template_list('BAC_UL_mappings', '', s, 'mappings', s, 'active_mapping', rows=7)
     # 预设菜单
     box = left.box().row(align=True)
-    box.menu(BAC_MT_presets.__name__, text=BAC_MT_presets.bl_label, icon='PRESET')
+    box.menu(BAC_MT_presets.__name__, text=BAC_MT_presets.bl_label, translate=False, icon='PRESET')
     box.operator(AddPresetBACMapping.bl_idname, text="", icon='ADD')
     box.operator(AddPresetBACMapping.bl_idname, text="", icon='REMOVE').remove_active=True
     box.separator()
@@ -62,24 +65,24 @@ class BAC_UL_mappings(bpy.types.UIList):
 
         def mapping():
             row.prop(item, 'selected', text='', emboss=False, icon='CHECKBOX_HLT' if item.selected else 'CHECKBOX_DEHLT')
-            row.prop_search(item, 'selected_owner', s.get_owner_armature(), 'bones', text='', icon='BONE_DATA')
+            row.prop_search(item, 'selected_owner', s.get_owner_armature(), 'bones', text='', translate=False, icon='BONE_DATA')
             row.label(icon='BACK')
-            row.prop_search(item, 'target', s.get_target_armature(), 'bones', text='', icon='BONE_DATA')
+            row.prop_search(item, 'target', s.get_target_armature(), 'bones', text='', translate=False, icon='BONE_DATA')
         def rotation():
             row.prop(item, 'has_rotoffs', icon='CON_ROTLIKE', icon_only=True)
-            layout.label(text=item.selected_owner)
+            layout.label(text=item.selected_owner, translate=False)
             if item.has_rotoffs:
                 layout.prop(item, 'offset', text='')
         def location():
             row.prop(item, 'has_loccopy', icon='CON_LOCLIKE', icon_only=True)
-            layout.label(text=item.selected_owner)
+            layout.label(text=item.selected_owner, translate=False)
             if item.has_loccopy:
                 layout.prop(item.get_cp(), 'use_x', text='X', toggle=True)
                 layout.prop(item.get_cp(), 'use_y', text='Y', toggle=True)
                 layout.prop(item.get_cp(), 'use_z', text='Z', toggle=True)
         def ik():
             row.prop(item, 'has_ik', icon='CON_KINEMATIC', icon_only=True)
-            layout.label(text=item.selected_owner)
+            layout.label(text=item.selected_owner, translate=False)
             if item.has_ik:
                 layout.prop(item.get_ik(), 'influence')
         
@@ -113,7 +116,7 @@ class BAC_MT_SettingMenu(bpy.types.Menu):
 
 
 class BAC_MT_presets(bpy.types.Menu):
-    bl_label = "Mapping预设"
+    bl_label = "映射表预设"
     preset_subdir = "kumopult_bac"
     preset_operator = "script.execute_preset"
     draw = bpy.types.Menu.draw_preset
@@ -150,6 +153,7 @@ class BAC_OT_SelectEditType(bpy.types.Operator):
     bl_idname = 'kumopult_bac.select_edit_type'
     bl_label = ''
     bl_description = '选择编辑列表类型'
+    bl_options = {'UNDO'}
 
     selected_type: bpy.props.IntProperty()
 
@@ -159,23 +163,11 @@ class BAC_OT_SelectEditType(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class BAC_OT_SelectMapping(bpy.types.Operator):
-    bl_idname = 'kumopult_bac.select_mapping'
-    bl_label = ''
-    bl_description = ''
-
-    index: bpy.props.IntProperty()
-
-    def execute(self, context):
-        s = get_state()
-        s.set_select(self.index, not s.mappings[self.index].selected)
-
-        return {'FINISHED'}
-
 class BAC_OT_SelectAction(bpy.types.Operator):
     bl_idname = 'kumopult_bac.select_action'
     bl_label = '列表选择操作'
-    bl_description = '依次为全选、反选、弃选'
+    bl_description = '全选/弃选/反选'
+    bl_options = {'UNDO'}
 
     action: bpy.props.StringProperty()
 
@@ -212,6 +204,7 @@ class BAC_OT_ListAction(bpy.types.Operator):
     bl_idname = 'kumopult_bac.list_action'
     bl_label = '列表基本操作'
     bl_description = '依次为新建、删除、上移、下移\n其中在姿态模式下选中骨骼并点击新建的话，\n可以自动填入对应骨骼'
+    bl_options = {'UNDO'}
 
     action: bpy.props.StringProperty()
 
@@ -278,6 +271,7 @@ class BAC_OT_ChildMapping(bpy.types.Operator):
     bl_idname = 'kumopult_bac.child_mapping'
     bl_label = '子级映射'
     bl_description = '如果选中映射的目标骨骼和自身骨骼都有且仅有唯一的子级，则在那两个子级间建立新的映射'
+    bl_options = {'UNDO'}
     
     execute_flag: bpy.props.BoolProperty(default=False)
 
@@ -293,20 +287,19 @@ class BAC_OT_ChildMapping(bpy.types.Operator):
     def child_mapping(self, index):
         s = get_state()
         m = s.mappings[index]
-        s.set_select(index, False)
+        if m.selected:
+            m.selected = False
         target_children = s.get_target_armature().bones[m.target].children
         owner_children = s.get_owner_armature().bones[m.owner].children
         
         if len(target_children) == len(owner_children) == 1:
-            child_index = s.add_mapping(owner_children[0].name, target_children[0].name, index + 1)[1]
-            s.set_select(child_index, True)
+            s.add_mapping(owner_children[0].name, target_children[0].name, index + 1)[0].selected = True
             self.execute_flag = True
             # 递归调用，实现连锁对应
             # self.child_mapping()
         else:
             for i in range(0, len(owner_children)):
-                child_index = s.add_mapping(owner_children[i].name, '', index + i + 1)[1]
-                s.set_select(child_index, True)
+                s.add_mapping(owner_children[i].name, '', index + i + 1)[0].selected = True
                 self.execute_flag = True
     
     def execute(self, context):
@@ -324,6 +317,7 @@ class BAC_OT_NameMapping(bpy.types.Operator):
     bl_idname = 'kumopult_bac.name_mapping'
     bl_label = '名称映射'
     bl_description = '按照名称的相似程度来给自身骨骼自动寻找最接近的目标骨骼'
+    bl_options = {'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -359,6 +353,7 @@ class BAC_OT_MirrorMapping(bpy.types.Operator):
     bl_idname = 'kumopult_bac.mirror_mapping'
     bl_label = '镜像映射'
     bl_description = '如果选中映射的目标骨骼和自身骨骼都有与之对称的骨骼，则在那两个对称骨骼间建立新的映射'
+    bl_options = {'UNDO'}
 
     execute_flag: bpy.props.BoolProperty(default=False)
 
@@ -374,13 +369,14 @@ class BAC_OT_MirrorMapping(bpy.types.Operator):
     def mirror_mapping(self, index):
         s = get_state()
         m = s.mappings[index]
-        s.set_select(index, False)
+        if m.selected:
+            m.selected = False
         owner_mirror = s.get_owner_pose().bones.get(bpy.utils.flip_name(m.owner))
         target_mirror = s.get_target_pose().bones.get(bpy.utils.flip_name(m.target))
         if owner_mirror != None and target_mirror != None:
+            new_mapping = s.add_mapping(owner_mirror.name, target_mirror.name, index=index + 1)[0]
+            new_mapping.selected = True
             self.execute_flag = True
-            mirror_index = s.add_mapping(owner_mirror.name, target_mirror.name, index=index + 1)[1]
-            s.set_select(mirror_index, True)
 
     def execute(self, context):
         s = get_state()
@@ -398,6 +394,7 @@ class BAC_OT_Bake(bpy.types.Operator):
     bl_idname = 'kumopult_bac.bake'
     bl_label = '烘培动画'
     bl_description = '根据来源骨架上动作的帧范围将约束效果烘培为新的动作片段\n本质上是在调用姿态=>动画=>烘焙动作这一方法,并自动设置一些参数\n注意这会让本插件所生成约束以外的约束也被烘焙'
+    bl_options = {'UNDO'}
 
     def execute(self, context):
         bpy.context.object.select_set(True)
@@ -433,7 +430,6 @@ classes = (
 
     BAC_OT_OpenPresetFolder,
     BAC_OT_SelectEditType,
-    BAC_OT_SelectMapping,
     BAC_OT_SelectAction,
     BAC_OT_ListAction,
     BAC_OT_ChildMapping,

@@ -15,13 +15,13 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         s = get_state()
         if self.is_valid() and s.calc_offset:
             # 计算旋转偏移
-            euler_offset = (self.get_owner().matrix @ self.get_target().matrix.inverted()).to_euler()
+            euler_offset = ((s.target.matrix_world @ self.get_target().matrix).inverted() @ (s.owner.matrix_world @ self.get_owner().matrix)).to_euler()
             if s.ortho_offset:
                 step = pi * 0.5
                 euler_offset[0] = round(euler_offset[0] / step) * step
                 euler_offset[1] = round(euler_offset[1] / step) * step
                 euler_offset[2] = round(euler_offset[2] / step) * step
-            if euler_offset != None or Euler.zero:
+            if euler_offset != None or Euler.zero():
                 self.offset[0] = euler_offset[0]
                 self.offset[1] = euler_offset[1]
                 self.offset[2] = euler_offset[2]
@@ -187,10 +187,9 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             rr.name = 'BAC_ROT_ROLL'
             rr.map_to = 'ROTATION'
             rr.owner_space = 'CUSTOM'
-            rr.space_object = get_state().target
-            rr.space_subtarget = self.target
+            rr.target = rr.space_object = get_state().target
+            rr.subtarget = rr.space_subtarget = self.target
             rr.show_expanded = False
-            rr.target = get_axes()
             if bpy.app.version >= (3, 0, 0):
                 rr.enabled = self.is_valid()
             else:
