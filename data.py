@@ -21,38 +21,57 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
                 euler_offset[0] = round(euler_offset[0] / step) * step
                 euler_offset[1] = round(euler_offset[1] / step) * step
                 euler_offset[2] = round(euler_offset[2] / step) * step
-            if euler_offset != None or Euler.zero():
+            print(euler_offset)
+            if euler_offset != None and euler_offset != Euler((0,0,0)):
                 self.offset[0] = euler_offset[0]
                 self.offset[1] = euler_offset[1]
                 self.offset[2] = euler_offset[2]
                 self.has_rotoffs = True
         self.apply()
     
+    def update_rotcopy(self, context):
+        s = get_state()
+        cr = self.get_cr()
+        cr.target = s.target
+        cr.subtarget = self.target
+        self.set_enable(cr, self.is_valid() and s.preview)
+    
     def update_rotoffs(self, context):
+        s = get_state()
+        rr = self.get_rr()
         if self.has_rotoffs:
-            # 开启旋转偏移，需要新建约束
-            self.update_offset(context)
+            rr.to_min_x_rot = self.offset[0]
+            rr.to_min_y_rot = self.offset[1]
+            rr.to_min_z_rot = self.offset[2]
+            rr.target = rr.space_object = s.target
+            rr.subtarget = rr.space_subtarget = self.target
+            self.set_enable(rr, self.is_valid() and s.preview)
         else:
-            # 关闭旋转偏移，需要清除约束
-            self.remove(self.get_rr())
+            self.remove(rr)
         
     def update_loccopy(self, context):
+        s = get_state()
+        cp = self.get_cp()
         if self.has_loccopy:
-            self.get_cp()
+            cp.use_x = self.loc_axis[0]
+            cp.use_y = self.loc_axis[1]
+            cp.use_z = self.loc_axis[2]
+            cp.target = s.target
+            cp.subtarget = self.target
+            self.set_enable(cp, self.is_valid() and s.preview)
         else:
-            self.remove(self.get_cp())
+            self.remove(cp)
     
     def update_ik(self, context):
+        s = get_state()
+        ik = self.get_ik()
         if self.has_ik:
-            self.get_ik()
+            ik.influence = self.ik_influence
+            ik.target = s.target
+            ik.subtarget = self.target
+            self.set_enable(ik, self.is_valid() and s.preview)
         else:
-            self.remove(self.get_ik())
-
-    def update_offset(self, context):
-        rr = self.get_rr()
-        rr.to_min_x_rot = self.offset[0]
-        rr.to_min_y_rot = self.offset[1]
-        rr.to_min_z_rot = self.offset[2]
+            self.remove(ik)
 
     selected_owner: bpy.props.StringProperty(
         name="自身骨骼", 
@@ -81,13 +100,26 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         description="附加额外约束，从而使目标骨骼跟随原骨骼进行IK矫正，通常应用于手掌、脚掌",
         update=update_ik
     )
+
     offset: bpy.props.FloatVectorProperty(
         name="旋转偏移量", 
-        description="世界坐标下复制旋转方向后，在本地坐标下进行的额外旋转偏移。通常只需要调整Y旋转", 
+        description="世界坐标下复制旋转方向后，在那基础上进行的额外旋转偏移。通常只需要调整Y旋转", 
         min=-pi,
         max=pi,
         subtype='EULER',
-        update=update_offset
+        update=update_rotoffs
+    )
+    loc_axis: bpy.props.BoolVectorProperty(
+        name="位置映射轴向",
+        default=[True, True, True],
+        update=update_loccopy
+    )
+    ik_influence: bpy.props.FloatProperty(
+        name="IK影响权重",
+        default=1,
+        min=0,
+        max=1,
+        update=update_ik
     )
 
     def update_selected(self, context):
@@ -95,13 +127,6 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
     
     selected: bpy.props.BoolProperty(update=update_selected)
 
-    def con_list(self):
-        return {
-            self.get_cr: True,
-            self.get_rr: self.has_rotoffs,
-            self.get_cp: self.has_loccopy,
-            self.get_ik: self.has_ik
-        }
     
     def get_owner(self):
         return get_state().get_owner_pose().bones.get(self.owner)
@@ -116,47 +141,30 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
     def apply(self):
         if not self.get_owner():
             return
-        s = get_state()
-
-        for get_con, has_con in self.con_list().items():
-            if has_con:
-                con = get_con()
-                con.target = s.target
-                con.subtarget = self.target
-                if bpy.app.version >= (3, 0, 0):
-                    con.enabled = self.is_valid()
-                else:
-                    con.mute = not self.is_valid()
-
-        if self.has_rotoffs:
-            rr = self.get_rr()
-            rr.to_min_x_rot = self.offset[0]
-            rr.to_min_y_rot = self.offset[1]
-            rr.to_min_z_rot = self.offset[2]
+        self.update_rotcopy(bpy.context)
+        self.update_rotoffs(bpy.context)
+        self.update_loccopy(bpy.context)
+        self.update_ik(bpy.context)
 
 
     def clear(self):
-        for get_con, has_con in self.con_list().items():
-            if has_con:
-                self.remove(get_con())
+        self.remove(self.get_cr())
+        self.remove(self.get_rr())
+        self.remove(self.get_cp())
+        self.remove(self.get_ik())
     
     def remove(self, constraint):
         if not self.get_owner():
             return
-        # get_state().get_owner_pose().bones.get(self.owner).constraints.remove(constraint)
         self.get_owner().constraints.remove(constraint)
     
-    def set_enable(self, state):
-        if not self.is_valid():
-            return
-        for get_con, has_con in self.con_list().items():
-            if has_con:
-                if bpy.app.version >= (3, 0, 0):
-                    get_con().enabled = state
-                else:
-                    get_con().mute = not state
+    def set_enable(self, con, state):
+        if bpy.app.version >= (3, 0, 0):
+            con.enabled = state
+        else:
+            con.mute = not state
 
-    def get_cr(self):
+    def get_cr(self) -> bpy.types.Constraint:
         if self.get_owner():
             con = self.get_owner().constraints
         else:
@@ -166,17 +174,11 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             cr = con.new(type='COPY_ROTATION')
             cr.name = 'BAC_ROT_COPY'
             cr.show_expanded = False
-            cr.target = get_state().target
-            cr.subtarget = self.target
-            if bpy.app.version >= (3, 0, 0):
-                cr.enabled = self.is_valid()
-            else:
-                cr.mute = not self.is_valid()
             return cr
         
         return con.get('BAC_ROT_COPY') or new_cr()
         
-    def get_rr(self):
+    def get_rr(self) -> bpy.types.Constraint:
         if self.get_owner():
             con = self.get_owner().constraints
         else:
@@ -187,18 +189,12 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             rr.name = 'BAC_ROT_ROLL'
             rr.map_to = 'ROTATION'
             rr.owner_space = 'CUSTOM'
-            rr.target = rr.space_object = get_state().target
-            rr.subtarget = rr.space_subtarget = self.target
             rr.show_expanded = False
-            if bpy.app.version >= (3, 0, 0):
-                rr.enabled = self.is_valid()
-            else:
-                rr.mute = not self.is_valid()
             return rr
         
         return con.get('BAC_ROT_ROLL') or new_rr()
         
-    def get_cp(self):
+    def get_cp(self) -> bpy.types.Constraint:
         if self.get_owner():
             con = self.get_owner().constraints
         else:
@@ -208,17 +204,11 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             cp = con.new(type='COPY_LOCATION')
             cp.name = 'BAC_LOC_COPY'
             cp.show_expanded = False
-            cp.target = get_state().target
-            cp.subtarget = self.target
-            if bpy.app.version >= (3, 0, 0):
-                cp.enabled = self.is_valid()
-            else:
-                cp.mute = not self.is_valid()
             return cp
         
         return con.get('BAC_LOC_COPY') or new_cp()
 
-    def get_ik(self):
+    def get_ik(self) -> bpy.types.Constraint:
         if self.get_owner():
             con = self.get_owner().constraints
         else:
@@ -228,14 +218,8 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             ik = con.new(type='IK')
             ik.name = 'BAC_IK'
             ik.show_expanded = False
-            ik.target = get_state().target
-            ik.subtarget = self.target
             ik.chain_count = 2
             ik.use_tail = False
-            if bpy.app.version >= (3, 0, 0):
-                ik.enabled = self.is_valid()
-            else:
-                ik.mute = not self.is_valid()
             return ik
         
         return con.get('BAC_IK') or new_ik()

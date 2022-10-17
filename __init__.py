@@ -62,10 +62,21 @@ class BAC_PT_Panel(bpy.types.Panel):
 
 
 class BAC_State(bpy.types.PropertyGroup):
+    def update_target(self, context):
+        self.owner = bpy.context.object
+        self.target = self.selected_target
+
+        for m in self.mappings:
+            m.apply()
+    
+    def update_preview(self, context):
+        for m in self.mappings:
+            m.apply()
+    
     selected_target: bpy.props.PointerProperty(
         type=bpy.types.Object,
         poll=lambda self, obj: obj.type == 'ARMATURE' and obj != bpy.context.object,
-        update=lambda self, ctx: get_state().update_target()
+        update=update_target
     )
     target: bpy.props.PointerProperty(type=bpy.types.Object)
     owner: bpy.props.PointerProperty(type=bpy.types.Object)
@@ -78,21 +89,10 @@ class BAC_State(bpy.types.PropertyGroup):
     preview: bpy.props.BoolProperty(
         default=True, 
         description="开关所有约束以便预览烘培出的动画之类的",
-        update=lambda self, ctx: get_state().update_preview()
+        update=update_preview
     )
     calc_offset: bpy.props.BoolProperty(default=True, description="设定映射目标时自动计算旋转偏移")
     ortho_offset: bpy.props.BoolProperty(default=True, description="将计算结果近似至90°的倍数")
-    
-    def update_target(self):
-        self.owner = bpy.context.object
-        self.target = self.selected_target
-
-        for m in self.mappings:
-            m.apply()
-    
-    def update_preview(self):
-        for m in self.mappings:
-            m.set_enable(self.preview)
     
     def get_target_armature(self):
         return self.target.data
