@@ -129,7 +129,7 @@ class AddPresetBACMapping(AddPresetBase, bpy.types.Operator):
 
     # variable used for all preset values
     preset_defines = [
-        "s = bpy.context.object.kumopult_bac"
+        "s = bpy.context.scene.kumopult_bac_owner.data.kumopult_bac"
     ]
 
     # properties to store in the preset
@@ -397,6 +397,9 @@ class BAC_OT_Bake(bpy.types.Operator):
     bl_options = {'UNDO'}
 
     def execute(self, context):
+        bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.ops.object.select_all(action='DESELECT')
+        bpy.context.view_layer.objects.active = bpy.context.scene.kumopult_bac_owner
         bpy.context.object.select_set(True)
         s = get_state()
         a = s.target.animation_data

@@ -39,15 +39,14 @@ class BAC_PT_Panel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         
-        if context.object != None and context.object.type == 'ARMATURE':
+        split = layout.row().split(factor=0.2)
+        left = split.column()
+        right = split.column()
+        left.label(text='映射骨架:')
+        left.label(text='约束目标:')
+        right.prop(bpy.context.scene, 'kumopult_bac_owner', text='', icon='ARMATURE_DATA', translate=False)
+        if bpy.context.scene.kumopult_bac_owner != None and bpy.context.scene.kumopult_bac_owner.type == 'ARMATURE':
             s = get_state()
-            
-            split = layout.row().split(factor=0.2)
-            left = split.column()
-            right = split.column()
-            left.label(text='映射骨架:')
-            left.label(text='约束目标:')
-            right.label(text=context.object.name, icon='ARMATURE_DATA', translate=False)
             right.prop(s, 'selected_target', text='', icon='ARMATURE_DATA', translate=False)
             
             if s.target == None:
@@ -58,12 +57,12 @@ class BAC_PT_Panel(bpy.types.Panel):
                 row.prop(s, 'preview', text='预览约束', icon= 'HIDE_OFF' if s.preview else 'HIDE_ON')
                 row.operator('kumopult_bac.bake', text='烘培动画', icon='NLA')
         else:
-            layout.label(text='未选中骨架对象', icon='ERROR')
+            right.label(text='未选中映射骨架对象', icon='ERROR')
 
 
 class BAC_State(bpy.types.PropertyGroup):
     def update_target(self, context):
-        self.owner = bpy.context.object
+        self.owner = bpy.context.scene.kumopult_bac_owner
         self.target = self.selected_target
 
         for m in self.mappings:
@@ -75,7 +74,7 @@ class BAC_State(bpy.types.PropertyGroup):
     
     selected_target: bpy.props.PointerProperty(
         type=bpy.types.Object,
-        poll=lambda self, obj: obj.type == 'ARMATURE' and obj != bpy.context.object,
+        poll=lambda self, obj: obj.type == 'ARMATURE' and obj != bpy.context.scene.kumopult_bac_owner,
         update=update_target
     )
     target: bpy.props.PointerProperty(type=bpy.types.Object)
@@ -173,11 +172,13 @@ classes = (
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
-    bpy.types.Object.kumopult_bac = bpy.props.PointerProperty(type=BAC_State)
+    bpy.types.Scene.kumopult_bac_owner = bpy.props.PointerProperty(type=bpy.types.Object, poll=lambda self, obj: obj.type == 'ARMATURE')
+    bpy.types.Armature.kumopult_bac = bpy.props.PointerProperty(type=BAC_State)
     print("hello kumopult!")
 
 def unregister():
     for cls in classes:
         bpy.utils.unregister_class(cls)
-    del bpy.types.Object.kumopult_bac
+    del bpy.types.Scene.kumopult_bac_owner
+    del bpy.types.Armature.kumopult_bac
     print("goodbye kumopult!")

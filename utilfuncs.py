@@ -1,7 +1,7 @@
 import bpy
 
 def get_state():
-    return bpy.context.object.kumopult_bac
+    return bpy.context.scene.kumopult_bac_owner.data.kumopult_bac
 
 def get_axes():
 
