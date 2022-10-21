@@ -22,7 +22,7 @@ def draw_panel(layout):
             box_left.operator('kumopult_bac.select_action', text='', emboss=False, icon='CHECKBOX_DEHLT').action = 'ALL'
             if s.selected_count != 0:
                 # 反选按钮仅在选中部分时出现
-                box_left.operator('kumopult_bac.select_action', text='', emboss=False, icon='UV_SYNC_SELECT').action = 'INVERSE'
+                box_left.operator('kumopult_bac.select_action', text='', emboss=False, icon='CON_ACTION').action = 'INVERSE'
     # 编辑模式切换
     box_right = box.row(align=False)
     box_right.alignment = 'RIGHT'
@@ -46,7 +46,12 @@ def draw_panel(layout):
     right.menu(BAC_MT_SettingMenu.__name__, text='', icon='DOWNARROW_HLT')
     right.separator()
     # 列表操作按钮
-    right.operator('kumopult_bac.list_action', icon='ADD', text='').action = 'ADD'
+    if s.owner.mode != 'POSE':
+        right.operator('kumopult_bac.list_action', icon='ADD', text='').action = 'ADD'
+    elif s.target.mode != 'POSE':
+        right.operator('kumopult_bac.list_action', icon='PRESET_NEW', text='').action = 'ADD_SELECT'
+    else:
+        right.operator('kumopult_bac.list_action', icon='PLUS', text='').action = 'ADD_ACTIVE'
     right.operator('kumopult_bac.list_action', icon='REMOVE', text='').action = 'REMOVE'
     right.operator('kumopult_bac.list_action', icon='TRIA_UP', text='').action = 'UP'
     right.operator('kumopult_bac.list_action', icon='TRIA_DOWN', text='').action = 'DOWN'
@@ -212,13 +217,18 @@ class BAC_OT_ListAction(bpy.types.Operator):
         s = get_state()
 
         def add():
-            #这里需要加一下判断，如果有选中的骨骼则自动填入owner
-            pb = bpy.context.selected_pose_bones_from_active_object
-            if pb != None and len(pb) > 0:
-                for b in pb:
-                    s.add_mapping(b.name, '')
-            else:
-                s.add_mapping('', '')
+            # 普通add
+            s.add_mapping('', '')
+        
+        def add_select():
+            # 选中项add
+            for bone in s.owner.data.bones:
+                if bone.select:
+                    s.add_mapping(bone.name, '')
+        
+        def add_active():
+            # 激活项add
+            s.add_mapping(s.owner.data.bones.active.name, s.target.data.bones.active.name)
         
         def remove():
             if len(s.mappings) > 0:
@@ -258,6 +268,8 @@ class BAC_OT_ListAction(bpy.types.Operator):
         
         ops = {
             'ADD': add,
+            'ADD_SELECT': add_select,
+            'ADD_ACTIVE': add_active,
             'REMOVE': remove,
             'UP': up,
             'DOWN': down
