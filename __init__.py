@@ -16,7 +16,7 @@ bl_info = {
     "author" : "Kumopult <kumopult@qq.com>",
     "description" : "Copy animation between different armature by bone constrain",
     "blender" : (3, 3, 0),
-    "version" : (0, 0, 4),
+    "version" : (1, 0, 0),
     "location" : "View 3D > Toolshelf",
     "warning" : "因为作者很懒所以没写英文教学！",
     "category" : "Animation",
@@ -72,6 +72,27 @@ class BAC_State(bpy.types.PropertyGroup):
         for m in self.mappings:
             m.apply()
     
+    def update_active(self, context):
+        if self.sync_select:
+            self.update_select(bpy.context)
+            owner_active = self.owner.data.bones.get(self.mappings[self.active_mapping].owner)
+            self.owner.data.bones.active = owner_active
+            target_active = self.target.data.bones.get(self.mappings[self.active_mapping].target)
+            self.target.data.bones.active = target_active
+    
+    def update_select(self, context):
+        if self.sync_select:
+            for bone in self.owner.data.bones:
+                bone.select = False
+            for m in self.mappings:
+                if m.selected:
+                    self.owner.data.bones.get(m.owner).select = True
+            for bone in self.target.data.bones:
+                bone.select = False
+            for m in self.mappings:
+                if m.selected:
+                    self.target.data.bones.get(m.target).select = True
+    
     selected_target: bpy.props.PointerProperty(
         type=bpy.types.Object,
         poll=lambda self, obj: obj.type == 'ARMATURE' and obj != bpy.context.scene.kumopult_bac_owner,
@@ -81,8 +102,8 @@ class BAC_State(bpy.types.PropertyGroup):
     owner: bpy.props.PointerProperty(type=bpy.types.Object)
     
     mappings: bpy.props.CollectionProperty(type=data.BAC_BoneMapping)
-    active_mapping: bpy.props.IntProperty(default=-1)
-    selected_count:bpy.props.IntProperty(default=0)
+    active_mapping: bpy.props.IntProperty(default=-1, update=update_active)
+    selected_count:bpy.props.IntProperty(default=0, update=update_select)
     
     editing_type: bpy.props.IntProperty(description="用于记录面板类型")
     preview: bpy.props.BoolProperty(
@@ -90,8 +111,10 @@ class BAC_State(bpy.types.PropertyGroup):
         description="开关所有约束以便预览烘培出的动画之类的",
         update=update_preview
     )
-    calc_offset: bpy.props.BoolProperty(default=True, description="设定映射目标时自动计算旋转偏移")
-    ortho_offset: bpy.props.BoolProperty(default=True, description="将计算结果近似至90°的倍数")
+
+    sync_select: bpy.props.BoolProperty(default=False, name='同步选择', description="点击列表项时会自动激活相应骨骼\n勾选列表项时会自动选中相应骨骼")
+    calc_offset: bpy.props.BoolProperty(default=True, name='自动旋转偏移', description="设定映射目标时自动计算旋转偏移")
+    ortho_offset: bpy.props.BoolProperty(default=True, name='正交', description="将计算结果近似至90°的倍数")
     
     def get_target_armature(self):
         return self.target.data

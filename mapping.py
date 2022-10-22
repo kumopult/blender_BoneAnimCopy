@@ -22,7 +22,7 @@ def draw_panel(layout):
             box_left.operator('kumopult_bac.select_action', text='', emboss=False, icon='CHECKBOX_DEHLT').action = 'ALL'
             if s.selected_count != 0:
                 # 反选按钮仅在选中部分时出现
-                box_left.operator('kumopult_bac.select_action', text='', emboss=False, icon='CON_ACTION').action = 'INVERSE'
+                box_left.operator('kumopult_bac.select_action', text='', emboss=False, icon='UV_SYNC_SELECT').action = 'INVERSE'
     # 编辑模式切换
     box_right = box.row(align=False)
     box_right.alignment = 'RIGHT'
@@ -116,8 +116,11 @@ class BAC_MT_SettingMenu(bpy.types.Menu):
     def draw(self, context):
         s = get_state()
         layout = self.layout
-        layout.prop(s, 'calc_offset', text='自动旋转偏移')
-        layout.prop(s, 'ortho_offset', text='正交')
+        layout.prop(s, 'sync_select')
+        layout.separator()
+        layout.prop(s, 'calc_offset')
+        layout.prop(s, 'ortho_offset')
+        layout.separator()
 
 
 class BAC_MT_presets(bpy.types.Menu):
@@ -222,9 +225,12 @@ class BAC_OT_ListAction(bpy.types.Operator):
         
         def add_select():
             # 选中项add
+            bone_names = []
             for bone in s.owner.data.bones:
                 if bone.select:
-                    s.add_mapping(bone.name, '')
+                    bone_names.append(bone.name)
+            for name in bone_names:
+                s.add_mapping(name, '')
         
         def add_active():
             # 激活项add

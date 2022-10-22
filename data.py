@@ -21,7 +21,6 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
                 euler_offset[0] = round(euler_offset[0] / step) * step
                 euler_offset[1] = round(euler_offset[1] / step) * step
                 euler_offset[2] = round(euler_offset[2] / step) * step
-            print(euler_offset)
             if euler_offset != None and euler_offset != Euler((0,0,0)):
                 self.offset[0] = euler_offset[0]
                 self.offset[1] = euler_offset[1]
