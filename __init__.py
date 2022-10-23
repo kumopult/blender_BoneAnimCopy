@@ -82,16 +82,16 @@ class BAC_State(bpy.types.PropertyGroup):
     
     def update_select(self, context):
         if self.sync_select:
+            owner_selection = []
+            target_selection = []
+            for m in self.mappings:
+                if m.selected:
+                    owner_selection.append(m.owner)
+                    target_selection.append(m.target)
             for bone in self.owner.data.bones:
-                bone.select = False
-            for m in self.mappings:
-                if m.selected:
-                    self.owner.data.bones.get(m.owner).select = True
+                bone.select = bone.name in owner_selection
             for bone in self.target.data.bones:
-                bone.select = False
-            for m in self.mappings:
-                if m.selected:
-                    self.target.data.bones.get(m.target).select = True
+                bone.select = bone.name in target_selection
     
     selected_target: bpy.props.PointerProperty(
         type=bpy.types.Object,
@@ -159,13 +159,13 @@ class BAC_State(bpy.types.PropertyGroup):
     def add_mapping(self, owner, target, index=-1):
         # 未传入index时，以激活项作为index
         if index == -1:
-            self.active_mapping += 1
-            index = self.active_mapping
+            index = self.active_mapping + 1
         # 这里需要检测一下目标骨骼是否已存在映射
         m, i = self.get_mapping_by_owner(owner)
         if m:
             # 若已存在，则覆盖原本的源骨骼，并返回映射和索引值
             m.target = target
+            self.active_mapping = i
             return m, i
         else:
             # 若不存在，则新建映射，同样返回映射和索引值
@@ -174,6 +174,7 @@ class BAC_State(bpy.types.PropertyGroup):
             m.target = target
             # return m, len(self.mappings) - 1
             self.mappings.move(len(self.mappings) - 1, index)
+            self.active_mapping = index
             return self.mappings[index], index
     
     def remove_mapping(self):

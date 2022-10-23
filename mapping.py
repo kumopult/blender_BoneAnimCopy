@@ -229,48 +229,51 @@ class BAC_OT_ListAction(bpy.types.Operator):
             for bone in s.owner.data.bones:
                 if bone.select:
                     bone_names.append(bone.name)
-            for name in bone_names:
-                s.add_mapping(name, '')
+            if len(bone_names) > 0:
+                for name in bone_names:
+                    s.add_mapping(name, '')
+            else:
+                s.add_mapping('', '')
         
         def add_active():
             # 激活项add
-            s.add_mapping(s.owner.data.bones.active.name, s.target.data.bones.active.name)
+            owner = s.owner.data.bones.active
+            target = s.target.data.bones.active
+            s.add_mapping(owner.name if owner != None else '', target.name if target != None else '')
         
         def remove():
             if len(s.mappings) > 0:
                 s.remove_mapping()
         
         def up():
-            move_indices = []
             if s.selected_count == 0:
                 if len(s.mappings) > s.active_mapping > 0:
-                    move_indices.append(s.active_mapping)
+                    s.mappings.move(s.active_mapping, s.active_mapping - 1)
                     s.active_mapping -= 1
             else:
+                move_indices = []
                 for i in range(1, len(s.mappings)):
                     if s.mappings[i].selected:
                         move_indices.append(i)
-            
-            for i in move_indices:
-                if not s.mappings[i - 1].selected:
-                    # 前一项未选中时才能前移
-                    s.mappings.move(i, i - 1)
+                for i in move_indices:
+                    if not s.mappings[i - 1].selected:
+                        # 前一项未选中时才能前移
+                        s.mappings.move(i, i - 1)
         
         def down():
-            move_indices = []
             if s.selected_count == 0:
                 if len(s.mappings) > s.active_mapping + 1 > 0:
-                    move_indices.append(s.active_mapping)
+                    s.mappings.move(s.active_mapping, s.active_mapping + 1)
                     s.active_mapping += 1
             else:
+                move_indices = []
                 for i in range(len(s.mappings) - 2, -1, -1):
                     if s.mappings[i].selected:
                         move_indices.append(i)
-            
-            for i in move_indices:
-                if not s.mappings[i + 1].selected:
-                    # 后一项未选中时才能后移
-                    s.mappings.move(i, i + 1)
+                for i in move_indices:
+                    if not s.mappings[i + 1].selected:
+                        # 后一项未选中时才能后移
+                        s.mappings.move(i, i + 1)
         
         ops = {
             'ADD': add,
