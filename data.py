@@ -8,6 +8,8 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         # 更改自身骨骼，需要先清空旧的约束再生成新的约束
         self.clear()
         self.owner = self.selected_owner
+        if len(self.get_owner().constraints) > 0:
+            alert_error('所选骨骼上包含其它约束', '本插件所生成的约束(名称以BAC开头)若与其它约束混用，可能导致烘焙效果出现偏差。建议避免映射这根骨骼')
         self.apply()
 
     def update_target(self, context):
@@ -33,7 +35,7 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         cr = self.get_cr()
         cr.target = s.target
         cr.subtarget = self.target
-        self.set_enable(cr, self.is_valid() and s.preview)
+        set_enable(cr, self.is_valid() and s.preview)
     
     def update_rotoffs(self, context):
         s = get_state()
@@ -44,7 +46,7 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             rr.to_min_z_rot = self.offset[2]
             rr.target = rr.space_object = s.target
             rr.subtarget = rr.space_subtarget = self.target
-            self.set_enable(rr, self.is_valid() and s.preview)
+            set_enable(rr, self.is_valid() and s.preview)
         else:
             self.remove(rr)
         
@@ -57,7 +59,7 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             cp.use_z = self.loc_axis[2]
             cp.target = s.target
             cp.subtarget = self.target
-            self.set_enable(cp, self.is_valid() and s.preview)
+            set_enable(cp, self.is_valid() and s.preview)
         else:
             self.remove(cp)
     
@@ -68,7 +70,7 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             ik.influence = self.ik_influence
             ik.target = s.target
             ik.subtarget = self.target
-            self.set_enable(ik, self.is_valid() and s.preview)
+            set_enable(ik, self.is_valid() and s.preview)
         else:
             self.remove(ik)
 
@@ -156,12 +158,6 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         if not self.get_owner():
             return
         self.get_owner().constraints.remove(constraint)
-    
-    def set_enable(self, con, state):
-        if bpy.app.version >= (3, 0, 0):
-            con.enabled = state
-        else:
-            con.mute = not state
 
     def get_cr(self) -> bpy.types.Constraint:
         if self.get_owner():

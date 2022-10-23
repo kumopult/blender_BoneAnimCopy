@@ -422,6 +422,7 @@ class BAC_OT_Bake(bpy.types.Operator):
         bpy.ops.object.select_all(action='DESELECT')
         bpy.context.view_layer.objects.active = bpy.context.scene.kumopult_bac_owner
         bpy.context.object.select_set(True)
+
         s = get_state()
         a = s.target.animation_data
 
@@ -430,6 +431,13 @@ class BAC_OT_Bake(bpy.types.Operator):
             alert_error('源骨架上没有动作！', '确保有动作的情况下才能自动判断烘培的帧范围')
             return {'FINISHED'}
         else:
+            # 备份插件以外约束的状态并关闭约束
+            non_bac_con = []
+            for pb in bpy.context.object.pose.bones:
+                for con in pb.constraints:
+                    if not con.name.startswith('BAC'):
+                        non_bac_con.append((con, con.enabled if bpy.app.version >= (3, 0, 0) else (not con.mute)))
+                        set_enable(con, False)
             # 打开约束进行烘培再关掉
             s.preview = True
             bpy.ops.nla.bake(
@@ -440,6 +448,8 @@ class BAC_OT_Bake(bpy.types.Operator):
                 bake_types={'POSE'}
             )
             s.preview = False
+            for con_enable in non_bac_con:
+                set_enable(con_enable[0], con_enable[1])
             #重命名动作、添加伪用户
             s.owner.animation_data.action.name = s.target.name
             s.owner.animation_data.action.use_fake_user = True
