@@ -8,7 +8,7 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         # 更改自身骨骼，需要先清空旧的约束再生成新的约束
         self.clear()
         self.owner = self.selected_owner
-        if len(self.get_owner().constraints) > 0:
+        if self.get_owner() != None and len(self.get_owner().constraints) > 0:
             alert_error('所选骨骼上包含其它约束', '本插件所生成的约束(名称以BAC开头)若与其它约束混用，可能导致烘焙效果出现偏差。建议避免映射这根骨骼')
         self.apply()
 
