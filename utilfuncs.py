@@ -1,6 +1,8 @@
 import bpy
 
 def get_state():
+    if bpy.context.scene.kumopult_bac_owner == None:
+        return None
     return bpy.context.scene.kumopult_bac_owner.data.kumopult_bac
 
 def set_enable(con: bpy.types.Constraint, state):

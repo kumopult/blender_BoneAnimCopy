@@ -77,28 +77,33 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
     selected_owner: bpy.props.StringProperty(
         name="自身骨骼", 
         description="将对方骨骼的旋转复制到自身的哪根骨骼上？", 
+        override={'LIBRARY_OVERRIDABLE'},
         update=update_owner
     )
-    owner: bpy.props.StringProperty()
+    owner: bpy.props.StringProperty(override={'LIBRARY_OVERRIDABLE'})
     target: bpy.props.StringProperty(
         name="约束目标", 
-        description="从对方骨架中选择哪根骨骼作为约束目标？", 
+        description="从对方骨架中选择哪根骨骼作为约束目标？",
+        override={'LIBRARY_OVERRIDABLE'},
         update=update_target
     )
 
     has_rotoffs: bpy.props.BoolProperty(
         name="旋转偏移", 
-        description="附加额外约束，从而在原变换结果的基础上进行额外的旋转", 
+        description="附加额外约束，从而在原变换结果的基础上进行额外的旋转",
+        override={'LIBRARY_OVERRIDABLE'},
         update=update_rotoffs
     )
     has_loccopy: bpy.props.BoolProperty(
         name="位置映射", 
-        description="附加额外约束，从而使目标骨骼跟随原骨骼的世界坐标运动，通常应用于根骨骼、武器等", 
+        description="附加额外约束，从而使目标骨骼跟随原骨骼的世界坐标运动，通常应用于根骨骼、武器等",
+        override={'LIBRARY_OVERRIDABLE'},
         update=update_loccopy
     )
     has_ik: bpy.props.BoolProperty(
         name="IK",
         description="附加额外约束，从而使目标骨骼跟随原骨骼进行IK矫正，通常应用于手掌、脚掌",
+        override={'LIBRARY_OVERRIDABLE'},
         update=update_ik
     )
 
@@ -107,12 +112,14 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         description="世界坐标下复制旋转方向后，在那基础上进行的额外旋转偏移。通常只需要调整Y旋转", 
         min=-pi,
         max=pi,
+        override={'LIBRARY_OVERRIDABLE'},
         subtype='EULER',
         update=update_rotoffs
     )
     loc_axis: bpy.props.BoolVectorProperty(
         name="位置映射轴向",
         default=[True, True, True],
+        override={'LIBRARY_OVERRIDABLE'},
         update=update_loccopy
     )
     ik_influence: bpy.props.FloatProperty(
@@ -120,13 +127,14 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         default=1,
         min=0,
         max=1,
+        override={'LIBRARY_OVERRIDABLE'},
         update=update_ik
     )
 
     def update_selected(self, context):
         get_state().selected_count += 1 if self.selected else -1
     
-    selected: bpy.props.BoolProperty(update=update_selected)
+    selected: bpy.props.BoolProperty(override={'LIBRARY_OVERRIDABLE'}, update=update_selected)
 
     
     def get_owner(self):

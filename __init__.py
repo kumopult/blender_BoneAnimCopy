@@ -95,26 +95,28 @@ class BAC_State(bpy.types.PropertyGroup):
     
     selected_target: bpy.props.PointerProperty(
         type=bpy.types.Object,
+        override={'LIBRARY_OVERRIDABLE'},
         poll=lambda self, obj: obj.type == 'ARMATURE' and obj != bpy.context.scene.kumopult_bac_owner,
         update=update_target
     )
-    target: bpy.props.PointerProperty(type=bpy.types.Object)
-    owner: bpy.props.PointerProperty(type=bpy.types.Object)
+    target: bpy.props.PointerProperty(type=bpy.types.Object, override={'LIBRARY_OVERRIDABLE'})
+    owner: bpy.props.PointerProperty(type=bpy.types.Object, override={'LIBRARY_OVERRIDABLE'})
     
-    mappings: bpy.props.CollectionProperty(type=data.BAC_BoneMapping)
-    active_mapping: bpy.props.IntProperty(default=-1, update=update_active)
-    selected_count:bpy.props.IntProperty(default=0, update=update_select)
+    mappings: bpy.props.CollectionProperty(type=data.BAC_BoneMapping, override={'LIBRARY_OVERRIDABLE', 'USE_INSERTION'})
+    active_mapping: bpy.props.IntProperty(default=-1, override={'LIBRARY_OVERRIDABLE'}, update=update_active)
+    selected_count:bpy.props.IntProperty(default=0, override={'LIBRARY_OVERRIDABLE'}, update=update_select)
     
-    editing_type: bpy.props.IntProperty(description="用于记录面板类型")
+    editing_type: bpy.props.IntProperty(description="用于记录面板类型", override={'LIBRARY_OVERRIDABLE'})
     preview: bpy.props.BoolProperty(
         default=True, 
         description="开关所有约束以便预览烘培出的动画之类的",
+        override={'LIBRARY_OVERRIDABLE'},
         update=update_preview
     )
 
-    sync_select: bpy.props.BoolProperty(default=False, name='同步选择', description="点击列表项时会自动激活相应骨骼\n勾选列表项时会自动选中相应骨骼")
-    calc_offset: bpy.props.BoolProperty(default=True, name='自动旋转偏移', description="设定映射目标时自动计算旋转偏移")
-    ortho_offset: bpy.props.BoolProperty(default=True, name='正交', description="将计算结果近似至90°的倍数")
+    sync_select: bpy.props.BoolProperty(default=False, name='同步选择', description="点击列表项时会自动激活相应骨骼\n勾选列表项时会自动选中相应骨骼", override={'LIBRARY_OVERRIDABLE'})
+    calc_offset: bpy.props.BoolProperty(default=True, name='自动旋转偏移', description="设定映射目标时自动计算旋转偏移", override={'LIBRARY_OVERRIDABLE'})
+    ortho_offset: bpy.props.BoolProperty(default=True, name='正交', description="将计算结果近似至90°的倍数", override={'LIBRARY_OVERRIDABLE'})
     
     def get_target_armature(self):
         return self.target.data
@@ -196,7 +198,7 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
     bpy.types.Scene.kumopult_bac_owner = bpy.props.PointerProperty(type=bpy.types.Object, poll=lambda self, obj: obj.type == 'ARMATURE')
-    bpy.types.Armature.kumopult_bac = bpy.props.PointerProperty(type=BAC_State)
+    bpy.types.Armature.kumopult_bac = bpy.props.PointerProperty(type=BAC_State, override={'LIBRARY_OVERRIDABLE'})
     print("hello kumopult!")
 
 def unregister():

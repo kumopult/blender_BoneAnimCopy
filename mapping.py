@@ -163,7 +163,7 @@ class BAC_OT_SelectEditType(bpy.types.Operator):
     bl_description = '选择编辑列表类型'
     bl_options = {'UNDO'}
 
-    selected_type: bpy.props.IntProperty()
+    selected_type: bpy.props.IntProperty(override={'LIBRARY_OVERRIDABLE'})
 
     def execute(self, context):
         s = get_state()
@@ -177,7 +177,7 @@ class BAC_OT_SelectAction(bpy.types.Operator):
     bl_description = '全选/弃选/反选'
     bl_options = {'UNDO'}
 
-    action: bpy.props.StringProperty()
+    action: bpy.props.StringProperty(override={'LIBRARY_OVERRIDABLE'})
 
     def execute(self, context):
         s = get_state()
@@ -214,7 +214,7 @@ class BAC_OT_ListAction(bpy.types.Operator):
     bl_description = '依次为新建、删除、上移、下移\n其中在姿态模式下选中骨骼并点击新建的话，\n可以自动填入对应骨骼'
     bl_options = {'UNDO'}
 
-    action: bpy.props.StringProperty()
+    action: bpy.props.StringProperty(override={'LIBRARY_OVERRIDABLE'})
 
     def execute(self, context):
         s = get_state()
@@ -294,12 +294,14 @@ class BAC_OT_ChildMapping(bpy.types.Operator):
     bl_description = '如果选中映射的目标骨骼和自身骨骼都有且仅有唯一的子级，则在那两个子级间建立新的映射'
     bl_options = {'UNDO'}
     
-    execute_flag: bpy.props.BoolProperty(default=False)
+    execute_flag: bpy.props.BoolProperty(default=False, override={'LIBRARY_OVERRIDABLE'})
 
     @classmethod
     def poll(cls, context):
         ret = True
         s = get_state()
+        if s == None:
+            return False
         for i in s.get_selection():
             if not s.mappings[i].is_valid():
                 ret = False
@@ -344,6 +346,8 @@ class BAC_OT_NameMapping(bpy.types.Operator):
     def poll(cls, context):
         ret = True
         s = get_state()
+        if s == None:
+            return False
         for i in s.get_selection():
             if s.mappings[i].get_owner() == None:
                 ret = False
@@ -376,12 +380,14 @@ class BAC_OT_MirrorMapping(bpy.types.Operator):
     bl_description = '如果选中映射的目标骨骼和自身骨骼都有与之对称的骨骼，则在那两个对称骨骼间建立新的映射'
     bl_options = {'UNDO'}
 
-    execute_flag: bpy.props.BoolProperty(default=False)
+    execute_flag: bpy.props.BoolProperty(default=False, override={'LIBRARY_OVERRIDABLE'})
 
     @classmethod
     def poll(cls, context):
         ret = True
         s = get_state()
+        if s == None:
+            return False
         for i in s.get_selection():
             if not s.mappings[i].is_valid():
                 ret = False
