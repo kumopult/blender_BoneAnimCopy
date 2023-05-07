@@ -120,6 +120,7 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         name="位置映射轴向",
         default=[True, True, True],
         override={'LIBRARY_OVERRIDABLE'},
+        subtype='XYZ',
         update=update_loccopy
     )
     ik_influence: bpy.props.FloatProperty(

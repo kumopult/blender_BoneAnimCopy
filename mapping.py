@@ -82,14 +82,12 @@ class BAC_UL_mappings(bpy.types.UIList):
             row.prop(item, 'has_loccopy', icon='CON_LOCLIKE', icon_only=True)
             layout.label(text=item.selected_owner, translate=False)
             if item.has_loccopy:
-                layout.prop(item.get_cp(), 'use_x', text='X', toggle=True)
-                layout.prop(item.get_cp(), 'use_y', text='Y', toggle=True)
-                layout.prop(item.get_cp(), 'use_z', text='Z', toggle=True)
+                layout.row().prop(item, 'loc_axis', text='', toggle=True)
         def ik():
             row.prop(item, 'has_ik', icon='CON_KINEMATIC', icon_only=True)
             layout.label(text=item.selected_owner, translate=False)
             if item.has_ik:
-                layout.prop(item.get_ik(), 'influence')
+                layout.prop(item, 'ik_influence', text='', slider=True)
         
         draw = {
             0: mapping,
@@ -437,25 +435,21 @@ class BAC_OT_Bake(bpy.types.Operator):
             alert_error('源骨架上没有动作！', '确保有动作的情况下才能自动判断烘培的帧范围')
             return {'FINISHED'}
         else:
-            # 备份插件以外约束的状态并关闭约束
-            non_bac_con = []
-            for pb in bpy.context.object.pose.bones:
-                for con in pb.constraints:
-                    if not con.name.startswith('BAC'):
-                        non_bac_con.append((con, con.enabled if bpy.app.version >= (3, 0, 0) else (not con.mute)))
-                        set_enable(con, False)
+            # 选中约束的骨骼
+            bpy.ops.object.mode_set(mode='POSE')
+            bpy.ops.pose.select_all(action='DESELECT')
+            for m in s.mappings:
+                s.get_owner_armature().bones.get(m.owner).select = True
             # 打开约束进行烘培再关掉
             s.preview = True
             bpy.ops.nla.bake(
                 frame_start=int(a.action.frame_range[0]),
                 frame_end=int(a.action.frame_range[1]),
-                only_selected=False,
+                only_selected=True,
                 visual_keying=True,
                 bake_types={'POSE'}
             )
             s.preview = False
-            for con_enable in non_bac_con:
-                set_enable(con_enable[0], con_enable[1])
             #重命名动作、添加伪用户
             s.owner.animation_data.action.name = s.target.name
             s.owner.animation_data.action.use_fake_user = True
