@@ -46,19 +46,18 @@ def draw_panel(layout):
     right.menu(BAC_MT_SettingMenu.__name__, text='', icon='DOWNARROW_HLT')
     right.separator()
     # 列表操作按钮
-    if s.owner.mode != 'POSE':
-        right.operator('kumopult_bac.list_action', icon='ADD', text='').action = 'ADD'
-    elif s.target.mode != 'POSE':
-        right.operator('kumopult_bac.list_action', icon='PRESET_NEW', text='').action = 'ADD_SELECT'
-    else:
-        right.operator('kumopult_bac.list_action', icon='PLUS', text='').action = 'ADD_ACTIVE'
+    right.operator('kumopult_bac.list_action', icon='PRESET_NEW', text='').action = 'ADD_SELECT'
+    right.operator('kumopult_bac.list_action', icon='CON_TRACKTO', text='').action = 'ADD_ACTIVE'
+    right.operator('kumopult_bac.list_action', icon='ADD', text='').action = 'ADD'
     right.operator('kumopult_bac.list_action', icon='REMOVE', text='').action = 'REMOVE'
     right.operator('kumopult_bac.list_action', icon='TRIA_UP', text='').action = 'UP'
     right.operator('kumopult_bac.list_action', icon='TRIA_DOWN', text='').action = 'DOWN'
     right.separator()
     right.operator('kumopult_bac.child_mapping', icon='CON_CHILDOF', text='')
-    right.operator('kumopult_bac.name_mapping', icon='CON_TRANSFORM_CACHE', text='')
+    right.operator('kumopult_bac.name_mapping', icon='FORWARD', text='')
+    right.operator('kumopult_bac.name_mapping_reverse', icon='BACK', text='')
     right.operator('kumopult_bac.mirror_mapping', icon='MOD_MIRROR', text='')
+    right.operator('kumopult_bac.roll_mapping', icon='CON_ROTLIKE', text='')
 
 
 class BAC_UL_mappings(bpy.types.UIList):
@@ -209,7 +208,7 @@ class BAC_OT_SelectAction(bpy.types.Operator):
 class BAC_OT_ListAction(bpy.types.Operator):
     bl_idname = 'kumopult_bac.list_action'
     bl_label = '列表基本操作'
-    bl_description = '依次为新建、删除、上移、下移\n其中在姿态模式下选中骨骼并点击新建的话，\n可以自动填入对应骨骼'
+    bl_description = '依次为新建(批量)、新建(映射)、新建、删除、上移、下移\n其中在姿态模式下选中骨骼并点击新建的话，\n可以自动填入对应骨骼'
     bl_options = {'UNDO'}
 
     action: bpy.props.StringProperty(override={'LIBRARY_OVERRIDABLE'})
@@ -227,11 +226,14 @@ class BAC_OT_ListAction(bpy.types.Operator):
             for bone in s.owner.data.bones:
                 if bone.select:
                     bone_names.append(bone.name)
-            if len(bone_names) > 0:
-                for name in bone_names:
-                    s.add_mapping(name, '')
-            else:
-                s.add_mapping('', '')
+            for name in bone_names:
+                s.add_mapping(name, '')
+            bone_names = []
+            for bone in s.target.data.bones:
+                if bone.select:
+                    bone_names.append(bone.name)
+            for name in bone_names:
+                s.add_mapping('', name)
         
         def add_active():
             # 激活项add
@@ -336,19 +338,19 @@ class BAC_OT_ChildMapping(bpy.types.Operator):
 
 class BAC_OT_NameMapping(bpy.types.Operator):
     bl_idname = 'kumopult_bac.name_mapping'
-    bl_label = '名称映射'
+    bl_label = '名称映射(向右)'
     bl_description = '按照名称的相似程度来给自身骨骼自动寻找最接近的目标骨骼'
     bl_options = {'UNDO'}
 
     @classmethod
     def poll(cls, context):
-        ret = True
+        ret = False
         s = get_state()
         if s == None:
             return False
         for i in s.get_selection():
-            if s.mappings[i].get_owner() == None:
-                ret = False
+            if s.mappings[i].get_owner() != None:
+                return True
         return ret
 
     def get_similar_bone(self, owner_name, target_bones):
@@ -367,8 +369,51 @@ class BAC_OT_NameMapping(bpy.types.Operator):
         s = get_state()
 
         for i in s.get_selection():
+            if s.mappings[i].get_owner() == None:
+                continue
             m = s.mappings[i]
             m.target = self.get_similar_bone(m.owner, s.get_target_armature().bones)
+
+        return {'FINISHED'}
+
+class BAC_OT_NameMapping_Reverse(bpy.types.Operator):
+    bl_idname = 'kumopult_bac.name_mapping_reverse'
+    bl_label = '名称映射(向左)'
+    bl_description = '按照名称的相似程度来给目标骨骼自动寻找最接近的自身骨骼'
+    bl_options = {'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        ret = False
+        s = get_state()
+        if s == None:
+            return False
+        for i in s.get_selection():
+            if s.mappings[i].get_target() != None:
+                return True
+        return ret
+
+    def get_similar_bone(self, target_name, owner_bones):
+        similar_name = ''
+        similar_ratio = 0
+
+        for owner in owner_bones:
+            r = difflib.SequenceMatcher(None, target_name, owner.name).quick_ratio()
+            if r > similar_ratio:
+                similar_ratio = r
+                similar_name = owner.name
+        
+        return similar_name
+
+    def execute(self, context):
+        s = get_state()
+
+        for i in s.get_selection():
+            if s.mappings[i].get_target() == None:
+                continue
+            m = s.mappings[i]
+            m.selected_owner = self.get_similar_bone(m.target, s.get_owner_armature().bones)
+            m.update_owner(context)
 
         return {'FINISHED'}
 
@@ -412,6 +457,63 @@ class BAC_OT_MirrorMapping(bpy.types.Operator):
         
         if not self.execute_flag:
             self.report({"ERROR"}, "所选项中没有可镜像的映射")
+
+        return {'FINISHED'}
+
+class BAC_OT_RollMapping(bpy.types.Operator):
+    bl_idname = 'kumopult_bac.roll_mapping'
+    bl_label = '扭转映射'
+    bl_description = '将目标骨骼的扭转差异映射到自身骨骼'
+    bl_options = {'UNDO'}
+
+    execute_flag: bpy.props.BoolProperty(default=False, override={'LIBRARY_OVERRIDABLE'})
+
+    @classmethod
+    def poll(cls, context):
+        ret = False
+        s = get_state()
+        if s == None:
+            return False
+        for i in s.get_selection():
+            if s.mappings[i].is_valid():
+                ret = True
+        return ret
+
+    def roll_mapping(self, index, context):
+        s = get_state()
+        m = s.mappings[index]
+        
+        owner_roll = s.get_owner_armature().edit_bones[m.get_owner().name].roll
+        target_roll = s.get_target_armature().edit_bones[m.get_target().name].roll
+        
+        offset = target_roll - owner_roll
+        print(offset)
+        if offset != 0.0:
+            m.has_rotoffs = True
+            m.offset[1] = target_roll - owner_roll
+            m.update_rotoffs(context)
+            self.execute_flag = True
+
+    def execute(self, context):
+        s = get_state()
+        self.execute_flag = False
+        
+        # 改成编辑模式
+        current_mode = bpy.context.object.mode
+        bpy.ops.object.mode_set(mode='EDIT')
+        
+        for i in s.get_selection():
+            if s.mappings[i].get_owner() == None:
+                continue
+            if s.mappings[i].get_target() == None:
+                continue
+            self.roll_mapping(i, context)
+        
+        # 改成原本模式
+        bpy.ops.object.mode_set(mode=current_mode)
+        
+        if not self.execute_flag:
+            self.report({"ERROR"}, "所选项中没有可建立扭转映射的映射")
 
         return {'FINISHED'}
 
@@ -468,6 +570,8 @@ classes = (
     BAC_OT_ListAction,
     BAC_OT_ChildMapping,
     BAC_OT_NameMapping,
+    BAC_OT_NameMapping_Reverse,
     BAC_OT_MirrorMapping,
+    BAC_OT_RollMapping,
     BAC_OT_Bake,
     )
