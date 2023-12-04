@@ -57,7 +57,6 @@ def draw_panel(layout):
     right.operator('kumopult_bac.name_mapping', icon='FORWARD', text='')
     right.operator('kumopult_bac.name_mapping_reverse', icon='BACK', text='')
     right.operator('kumopult_bac.mirror_mapping', icon='MOD_MIRROR', text='')
-    right.operator('kumopult_bac.roll_mapping', icon='CON_ROTLIKE', text='')
 
 
 class BAC_UL_mappings(bpy.types.UIList):
@@ -460,63 +459,6 @@ class BAC_OT_MirrorMapping(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class BAC_OT_RollMapping(bpy.types.Operator):
-    bl_idname = 'kumopult_bac.roll_mapping'
-    bl_label = '扭转映射'
-    bl_description = '将目标骨骼的扭转差异映射到自身骨骼'
-    bl_options = {'UNDO'}
-
-    execute_flag: bpy.props.BoolProperty(default=False, override={'LIBRARY_OVERRIDABLE'})
-
-    @classmethod
-    def poll(cls, context):
-        ret = False
-        s = get_state()
-        if s == None:
-            return False
-        for i in s.get_selection():
-            if s.mappings[i].is_valid():
-                ret = True
-        return ret
-
-    def roll_mapping(self, index, context):
-        s = get_state()
-        m = s.mappings[index]
-        
-        owner_roll = s.get_owner_armature().edit_bones[m.get_owner().name].roll
-        target_roll = s.get_target_armature().edit_bones[m.get_target().name].roll
-        
-        offset = target_roll - owner_roll
-        print(offset)
-        if offset != 0.0:
-            m.has_rotoffs = True
-            m.offset[1] = target_roll - owner_roll
-            m.update_rotoffs(context)
-            self.execute_flag = True
-
-    def execute(self, context):
-        s = get_state()
-        self.execute_flag = False
-        
-        # 改成编辑模式
-        current_mode = bpy.context.object.mode
-        bpy.ops.object.mode_set(mode='EDIT')
-        
-        for i in s.get_selection():
-            if s.mappings[i].get_owner() == None:
-                continue
-            if s.mappings[i].get_target() == None:
-                continue
-            self.roll_mapping(i, context)
-        
-        # 改成原本模式
-        bpy.ops.object.mode_set(mode=current_mode)
-        
-        if not self.execute_flag:
-            self.report({"ERROR"}, "所选项中没有可建立扭转映射的映射")
-
-        return {'FINISHED'}
-
 class BAC_OT_Bake(bpy.types.Operator):
     bl_idname = 'kumopult_bac.bake'
     bl_label = '烘培动画'
@@ -572,6 +514,5 @@ classes = (
     BAC_OT_NameMapping,
     BAC_OT_NameMapping_Reverse,
     BAC_OT_MirrorMapping,
-    BAC_OT_RollMapping,
     BAC_OT_Bake,
     )
