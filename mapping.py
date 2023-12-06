@@ -57,7 +57,7 @@ def draw_panel(layout):
     right.operator('kumopult_bac.name_mapping', icon='FORWARD', text='')
     right.operator('kumopult_bac.name_mapping_reverse', icon='BACK', text='')
     right.operator('kumopult_bac.mirror_mapping', icon='MOD_MIRROR', text='')
-    right.operator('kumopult_bac.roll_mapping', icon='CON_ROTLIKE', text='')
+    right.operator('kumopult_bac.rot_mapping', icon='CON_ROTLIKE', text='')
 
 
 class BAC_UL_mappings(bpy.types.UIList):
@@ -460,8 +460,8 @@ class BAC_OT_MirrorMapping(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class BAC_OT_RollMapping(bpy.types.Operator):
-    bl_idname = 'kumopult_bac.roll_mapping'
+class BAC_OT_RotMapping(bpy.types.Operator):
+    bl_idname = 'kumopult_bac.rot_mapping'
     bl_label = '旋转映射'
     bl_description = '将目标骨骼的旋转差异映射到自身骨骼'
     bl_options = {'UNDO'}
@@ -479,7 +479,7 @@ class BAC_OT_RollMapping(bpy.types.Operator):
                 ret = True
         return ret
 
-    def roll_mapping(self, index, context):
+    def rot_mapping(self, index, context):
         s = get_state()
         m = s.mappings[index]
 
@@ -526,7 +526,7 @@ class BAC_OT_RollMapping(bpy.types.Operator):
                 continue
             if s.mappings[i].get_target() == None:
                 continue
-            self.roll_mapping(i, context)
+            self.rot_mapping(i, context)
         
         # 恢复当前状态，恢复当前模式
         bpy.ops.object.mode_set(mode=current_mode)
@@ -592,6 +592,6 @@ classes = (
     BAC_OT_NameMapping,
     BAC_OT_NameMapping_Reverse,
     BAC_OT_MirrorMapping,
-    BAC_OT_RollMapping,
+    BAC_OT_RotMapping,
     BAC_OT_Bake,
     )
