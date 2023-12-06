@@ -57,6 +57,7 @@ def draw_panel(layout):
     right.operator('kumopult_bac.name_mapping', icon='FORWARD', text='')
     right.operator('kumopult_bac.name_mapping_reverse', icon='BACK', text='')
     right.operator('kumopult_bac.mirror_mapping', icon='MOD_MIRROR', text='')
+    right.operator('kumopult_bac.roll_mapping', icon='CON_ROTLIKE', text='')
 
 
 class BAC_UL_mappings(bpy.types.UIList):
@@ -459,6 +460,83 @@ class BAC_OT_MirrorMapping(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class BAC_OT_RollMapping(bpy.types.Operator):
+    bl_idname = 'kumopult_bac.roll_mapping'
+    bl_label = '旋转映射'
+    bl_description = '将目标骨骼的旋转差异映射到自身骨骼'
+    bl_options = {'UNDO'}
+
+    execute_flag: bpy.props.BoolProperty(default=False, override={'LIBRARY_OVERRIDABLE'})
+
+    @classmethod
+    def poll(cls, context):
+        ret = False
+        s = get_state()
+        if s == None:
+            return False
+        for i in s.get_selection():
+            if s.mappings[i].is_valid():
+                ret = True
+        return ret
+
+    def roll_mapping(self, index, context):
+        s = get_state()
+        m = s.mappings[index]
+
+        # edit_bone
+        owner_bone = s.get_owner_armature().edit_bones[m.get_owner().name]
+        target_bone = s.get_target_armature().edit_bones[m.get_target().name]
+
+        def calc_rot_in_custom_space(a, b):
+            """计算edit_bone a在b的自定义空间中的旋转"""
+            if not isinstance(a, bpy.types.EditBone) or not isinstance(b, bpy.types.EditBone):
+                raise ValueError("Both a and b must be instances of bpy.types.EditBone")
+
+            rotation_in_custom_space = b.matrix.inverted() @ a.matrix
+            return [rotation_in_custom_space.to_euler().x,
+                    rotation_in_custom_space.to_euler().y,
+                    rotation_in_custom_space.to_euler().z]
+
+        rot_in_custom_space = calc_rot_in_custom_space(owner_bone, target_bone)
+
+        if rot_in_custom_space != [0.0, 0.0, 0.0]:
+            m.has_rotoffs = True
+            # 将目标和拥有者皆设定为世界空间的旋转约束多余的旋转给转回来
+            # 相当于保留两根骨骼在编辑模式下的旋转偏差，仅映射姿态模式下的旋转
+            m.offset[0] = rot_in_custom_space[0]
+            m.offset[1] = rot_in_custom_space[1]
+            m.offset[2] = rot_in_custom_space[2]
+            m.update_rotoffs(context)
+            self.execute_flag = True
+
+    def execute(self, context):
+        s = get_state()
+        self.execute_flag = False
+        
+        # 纪录当前状态，改成编辑模式
+        # 两个骨架都要选才能进编辑模式
+        select_state = s.owner.select, s.target.select
+        current_mode = bpy.context.object.mode
+        s.owner.select = True
+        s.target.select = True
+        bpy.ops.object.mode_set(mode='EDIT')
+        
+        for i in s.get_selection():
+            if s.mappings[i].get_owner() == None:
+                continue
+            if s.mappings[i].get_target() == None:
+                continue
+            self.roll_mapping(i, context)
+        
+        # 恢复当前状态，恢复当前模式
+        bpy.ops.object.mode_set(mode=current_mode)
+        s.owner.select, s.target.select = select_state
+        
+        if not self.execute_flag:
+            self.report({"ERROR"}, "所选项中没有可建立旋转映射的映射")
+
+        return {'FINISHED'}
+
 class BAC_OT_Bake(bpy.types.Operator):
     bl_idname = 'kumopult_bac.bake'
     bl_label = '烘培动画'
@@ -514,5 +592,6 @@ classes = (
     BAC_OT_NameMapping,
     BAC_OT_NameMapping_Reverse,
     BAC_OT_MirrorMapping,
+    BAC_OT_RollMapping,
     BAC_OT_Bake,
     )

@@ -35,6 +35,9 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         cr = self.get_cr()
         cr.target = s.target
         cr.subtarget = self.target
+        # TODO: 让用户自定义或者加一个按钮切换旋转约束的目标和拥有者的解算空间?
+        # cr.owner_space = 'LOCAL'
+        # cr.target_space = 'LOCAL_OWNER_ORIENT' # 要先指定目标并且目标类型为骨架才有'LOCAL_OWNER_ORIENT'选项
         set_enable(cr, self.is_valid() and s.preview)
     
     def update_rotoffs(self, context):
