@@ -518,8 +518,7 @@ class BAC_OT_RotMapping(bpy.types.Operator):
         select_state = s.owner.select, s.target.select
         active_obj = bpy.context.view_layer.objects.active
         current_mode = bpy.context.object.mode
-        s.owner.select = True
-        s.target.select = True
+        s.owner.select = s.target.select = True
         bpy.context.view_layer.objects.active = s.owner
         bpy.ops.object.mode_set(mode='EDIT')
         
