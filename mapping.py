@@ -516,9 +516,11 @@ class BAC_OT_RotMapping(bpy.types.Operator):
         # 纪录当前状态，改成编辑模式
         # 两个骨架都要选才能进编辑模式
         select_state = s.owner.select, s.target.select
+        active_obj = bpy.context.view_layer.objects.active
         current_mode = bpy.context.object.mode
         s.owner.select = True
         s.target.select = True
+        bpy.context.view_layer.objects.active = s.owner
         bpy.ops.object.mode_set(mode='EDIT')
         
         for i in s.get_selection():
@@ -530,6 +532,7 @@ class BAC_OT_RotMapping(bpy.types.Operator):
         
         # 恢复当前状态，恢复当前模式
         bpy.ops.object.mode_set(mode=current_mode)
+        bpy.context.view_layer.objects.active = active_obj
         s.owner.select, s.target.select = select_state
         
         if not self.execute_flag:
