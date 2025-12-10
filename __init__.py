@@ -4,10 +4,10 @@ bl_info = {
     "author": "Kumopult (optimized), maylog",
     "description": "Copy animation between armatures using bone constraints.",
     "blender": (4, 2, 0),
-    "version": (1, 1, 3),  
+    "version": (1, 1, 4),
     "location": "View 3D > UI > BoneAnimCopy",
     "category": "Animation",
-    "tracker_url": "https://space.bilibili.com/1628026",
+    "tracker_url": "https://github.com/mayloglog/blender_BoneAnimCopy",
 }
 
 import bpy
@@ -104,8 +104,9 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         self.owner = self.selected_owner
         state = self._state()
         if state and self.get_owner_pose_bone():
-            if len(self.get_owner_pose_bone().constraints) > 0:
-                alert_error("Constraint Conflict", f"Bone '{self.owner}' already has constraints; mixing may affect baking.")
+            # 检查非 BAC 约束 (保留 Bug 修复)
+            if len([c for c in self.get_owner_pose_bone().constraints if not c.name.startswith(BAC_CONSTRAINT_PREFIX)]) > 0:
+                alert_error("Constraint Conflict", f"Bone '{self.owner}' already has non-BAC constraints; mixing may affect baking.")
         self._apply(context)
 
     @guard("is_updating")
@@ -117,6 +118,7 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
             target_bone = self.get_target_pose_bone()
             if owner_bone and target_bone:
                 try:
+                    # 姿态切换/偏移计算逻辑
                     euler = ((state.target.matrix_world @ target_bone.matrix).inverted() @ 
                              (state.owner.matrix_world @ owner_bone.matrix)).to_euler()
                     if state.ortho_offset:
@@ -189,7 +191,9 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
         if kind == 'ik':
             ik = self._new_constraint(owner_pb, 'IK', "BAC_IK")
             try:
-                ik.chain_count = 2
+                state = self._state()
+                # 应用全局 IK 链长
+                ik.chain_count = state.ik_chain_count if state else 2
                 ik.use_tail = False
             except AttributeError as e:
                 alert_error("Constraint Setup Failed", f"Cannot configure IK constraint for '{owner_pb.name}': {str(e)}")
@@ -244,6 +248,9 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
                     constraints['loc'].use_z = self.loc_axis[2]
                     constraints['loc'].target = state.target
                     constraints['loc'].subtarget = self.target
+                    # 应用全局位置空间设置
+                    constraints['loc'].owner_space = state.loc_space
+                    constraints['loc'].target_space = state.loc_space
                     set_constraint_enabled(constraints['loc'], state.preview)
                 except AttributeError as e:
                     alert_error("Constraint Error", f"Cannot set location constraint for '{self.owner}': {str(e)}")
@@ -257,6 +264,8 @@ class BAC_BoneMapping(bpy.types.PropertyGroup):
                     constraints['ik'].influence = self.ik_influence
                     constraints['ik'].target = state.target
                     constraints['ik'].subtarget = self.target
+                    # 应用全局 IK 链长设置
+                    constraints['ik'].chain_count = state.ik_chain_count
                     set_constraint_enabled(constraints['ik'], state.preview)
                 except AttributeError as e:
                     alert_error("Constraint Error", f"Cannot set IK constraint for '{self.owner}': {str(e)}")
@@ -287,18 +296,22 @@ class BAC_State(bpy.types.PropertyGroup):
     is_updating: bool = False
 
     @guard("is_updating")
-    def update_target(self, context):
-        """Update target armature and apply constraints."""
-        self.owner = bpy.context.scene.kumopult_bac_owner
-        self.target = self.selected_target
+    def update_constraints(self, context):
+        """Uniformly update the state of all constraints.""" #统一更新所有约束状态。
         for mapping in self.mappings:
             mapping._apply(context)
 
     @guard("is_updating")
+    def update_target(self, context):
+        """Update target armature and apply constraints."""
+        self.owner = bpy.context.scene.kumopult_bac_owner
+        self.target = self.selected_target
+        self.update_constraints(context)
+
+    @guard("is_updating")
     def update_preview(self, context):
         """Update constraint preview state."""
-        for mapping in self.mappings:
-            mapping._apply(context)
+        self.update_constraints(context)
 
     @guard("is_updating")
     def update_active(self, context):
@@ -344,6 +357,29 @@ class BAC_State(bpy.types.PropertyGroup):
     calc_offset: bpy.props.BoolProperty(default=True, description="Calculate rotation offset automatically")
     ortho_offset: bpy.props.BoolProperty(default=True, description="Snap offset to orthogonal angles")
     target_animation_layer: bpy.props.StringProperty(default="", description="Target animation layer for baking")
+
+    # LOGIC/UI: Location Space (约束空间)
+    loc_space: bpy.props.EnumProperty(
+        items=[
+            ('WORLD', "World Space", "Use World Space for location constraint"),
+            ('POSE', "Pose Space", "Use Pose Space for location constraint (relative to armature object)"),
+            ('LOCAL', "Local Space", "Use Local Space for location constraint (relative to bone's parent or self)"),
+            ('PARENT', "Parent Space", "Use Parent Space for location constraint")
+        ],
+        name="Location Space",
+        description="Coordinate space for location copy constraints", 
+        default='WORLD',
+        update=update_constraints
+    )
+
+    # LOGIC/UI: IK Chain Count (IK 链数)
+    ik_chain_count: bpy.props.IntProperty(
+        name="IK Chain Length",
+        description="The number of bones in the IK chain (0 means to the root bone)",
+        default=2,
+        min=0,
+        update=update_constraints
+    )
 
     def get_target_armature(self) -> Optional[bpy.types.Armature]:
         """Get the target armature data."""
@@ -428,18 +464,13 @@ class BAC_UL_mappings(bpy.types.UIList):
             row.prop(item, "has_loccopy", icon='CON_LOCLIKE', icon_only=True)
             layout.label(text=item.selected_owner, translate=False)
             if item.has_loccopy:
-                cp = item.get_constraint('loc')
-                if cp:
-                    layout.prop(cp, "use_x", text="X", toggle=True)
-                    layout.prop(cp, "use_y", text="Y", toggle=True)
-                    layout.prop(cp, "use_z", text="Z", toggle=True)
-        else:
+                layout.prop(item, "loc_axis", text="")
+        else: # state.editing_type == 3
             row.prop(item, "has_ik", icon='CON_KINEMATIC', icon_only=True)
             layout.label(text=item.selected_owner, translate=False)
             if item.has_ik:
-                ik = item.get_constraint('ik')
-                if ik:
-                    layout.prop(ik, "influence")
+                layout.prop(item, "ik_influence", text="Influence")
+
 
 class BAC_MT_SettingMenu(bpy.types.Menu):
     bl_label = "Settings"
@@ -453,7 +484,7 @@ class BAC_MT_SettingMenu(bpy.types.Menu):
         layout.prop(state, "calc_offset")
         layout.prop(state, "ortho_offset")
         layout.prop(state, "target_animation_layer", text="Animation Layer")
-        layout.separator()
+
 
 class BAC_MT_presets(bpy.types.Menu):
     bl_label = "Mapping Presets"
@@ -564,19 +595,47 @@ class BAC_OT_ChildMapping(bpy.types.Operator):
         if not state:
             return {"CANCELLED"}
         flag = False
-        for i in state.get_selection():
+        selection = state.get_selection()
+        
+        # If selection is empty, use the active one
+        if not selection and state.active_mapping != -1:
+            selection = [state.active_mapping]
+
+        for i in selection:
             mapping = state.mappings[i]
             if mapping.selected:
                 mapping.selected = False
-            target_children = state.get_target_armature().bones[mapping.target].children
-            owner_children = state.get_owner_armature().bones[mapping.owner].children
-            if len(target_children) == len(owner_children) == 1:
+            
+            owner_armature = state.get_owner_armature()
+            target_armature = state.get_target_armature()
+            
+            if not owner_armature or not target_armature:
+                continue
+
+            owner_bone = owner_armature.bones.get(mapping.owner)
+            target_bone = target_armature.bones.get(mapping.target)
+            
+            if not owner_bone or not target_bone:
+                continue
+            
+            owner_children = owner_bone.children
+            target_children = target_bone.children
+            
+            if len(owner_children) == 1 and len(target_children) == 1:
+                # Add the new mapping right after the current one
                 new_mapping, _ = state.add_mapping(owner_children[0].name, target_children[0].name, i+1)
                 new_mapping.selected = True
                 flag = True
-        if not flag:
-            self.report({"ERROR"}, "No eligible child bones found for mapping")
+            elif len(owner_children) > 0 and len(target_children) > 0:
+                self.report({"WARNING"}, f"Bone '{mapping.owner}' has multiple children. Skipping child mapping.")
+        
+        if not flag and not selection:
+             self.report({"ERROR"}, "No active or selected mappings to process.")
+        elif not flag:
+            self.report({"ERROR"}, "No eligible single-child bones found for mapping or mapping not selected/active.")
+            
         return {"FINISHED"}
+
 
 class BAC_OT_NameMapping(bpy.types.Operator):
     bl_idname = "kumopult_bac.name_mapping"
@@ -588,25 +647,34 @@ class BAC_OT_NameMapping(bpy.types.Operator):
     def execute(self, context):
         """Map bones by name similarity or hierarchy."""
         state = safe_get_state()
-        if not state:
+        if not state or not state.target:
             return {"CANCELLED"}
-        for i in state.get_selection():
+        
+        selection = state.get_selection()
+        if not selection:
+            self.report({"ERROR"}, "No active or selected mappings to process.")
+            return {"CANCELLED"}
+
+        target_bones = state.get_target_armature().bones
+        
+        for i in selection:
             mapping = state.mappings[i]
             best_match = ''
             best_score = 0.0
             owner_bone = state.get_owner_armature().bones.get(mapping.owner)
             if not owner_bone:
                 continue
+            
             if self.use_hierarchy:
                 owner_parent = owner_bone.parent
-                for target_bone in state.get_target_armature().bones:
+                for target_bone in target_bones:
                     if owner_parent and target_bone.parent:
                         if owner_parent.name == mapping.owner and target_bone.parent.name == mapping.target:
                             best_match = target_bone.name
                             best_score = 1.0
                             break
             else:
-                for target_bone in state.get_target_armature().bones:
+                for target_bone in target_bones:
                     target_name = target_bone.name
                     if self.prefix and not target_name.startswith(self.prefix):
                         continue
@@ -616,10 +684,13 @@ class BAC_OT_NameMapping(bpy.types.Operator):
                     if score > best_score:
                         best_score = score
                         best_match = target_name
+            
             if best_match:
                 mapping.target = best_match
             else:
-                self.report({"WARNING"}, f"No matching bone found for '{mapping.owner}'")
+                self.report({"WARNING"}, f"No matching bone found for '{mapping.owner}' (Score: {best_score:.2f})")
+                
+        state.update_constraints(context)
         return {"FINISHED"}
 
 class BAC_OT_MirrorMapping(bpy.types.Operator):
@@ -631,18 +702,37 @@ class BAC_OT_MirrorMapping(bpy.types.Operator):
         if not state:
             return {"CANCELLED"}
         flag = False
-        for i in state.get_selection():
+        
+        selection = state.get_selection()
+        if not selection and state.active_mapping != -1:
+            selection = [state.active_mapping]
+
+        for i in selection:
             mapping = state.mappings[i]
             if mapping.selected:
                 mapping.selected = False
-            owner_mirrored = state.get_owner_pose().bones.get(bpy.utils.flip_name(mapping.owner))
-            target_mirrored = state.get_target_pose().bones.get(bpy.utils.flip_name(mapping.target))
+
+            owner_mirrored_name = bpy.utils.flip_name(mapping.owner)
+            target_mirrored_name = bpy.utils.flip_name(mapping.target)
+            
+            owner_mirrored = state.get_owner_pose().bones.get(owner_mirrored_name)
+            target_mirrored = state.get_target_pose().bones.get(target_mirrored_name)
+            
             if owner_mirrored and target_mirrored:
                 new_mapping, _ = state.add_mapping(owner_mirrored.name, target_mirrored.name, i+1)
                 new_mapping.selected = True
                 flag = True
-        if not flag:
-            self.report({"ERROR"}, "No mirrored bones found for mapping")
+            elif owner_mirrored_name and target_mirrored_name:
+                new_mapping, _ = state.add_mapping(owner_mirrored_name, target_mirrored_name, i+1)
+                new_mapping.selected = True
+                flag = True
+            else:
+                self.report({"WARNING"}, f"No mirrored bones found for mapping: '{mapping.owner}' -> '{owner_mirrored_name}'")
+        
+        if not flag and not selection:
+            self.report({"ERROR"}, "No active or selected mappings to mirror.")
+            return {"CANCELLED"}
+
         return {"FINISHED"}
 
 class BAC_OT_Bake(bpy.types.Operator):
@@ -659,17 +749,27 @@ class BAC_OT_Bake(bpy.types.Operator):
         
         target_anim = state.target.animation_data
         if not target_anim or not getattr(target_anim, "action", None):
-            alert_error("No Source Action", f"Target armature '{state.target.name}' has no animation data")
+            alert_error("No Source Action", f"Target armature '{state.target.name}' has no animation data or active action")
             return {"CANCELLED"}
 
-        bpy.ops.object.mode_set(mode='OBJECT')
+        # Store original mode and switch to object mode for safe operation
+        try:
+            prev_mode = owner_obj.mode
+            bpy.ops.object.mode_set(mode='OBJECT')
+        except:
+            self.report({'WARNING'}, "Could not set owner object to OBJECT mode before baking.")
+            prev_mode = None
+
+
         bpy.ops.object.select_all(action='DESELECT')
         context.view_layer.objects.active = owner_obj
         owner_obj.select_set(True)
 
+        # 1. Disable non-BAC constraints on Owner
         non_bac_constraints = []
         for pose_bone in owner_obj.pose.bones:
             for con in list(pose_bone.constraints):
+                # 修复 BUG：只检查非 BAC 约束
                 if not con.name.startswith(BAC_CONSTRAINT_PREFIX):
                     try:
                         prev_enabled = con.enabled if hasattr(con, "enabled") else (not con.mute if hasattr(con, "mute") else True)
@@ -678,7 +778,10 @@ class BAC_OT_Bake(bpy.types.Operator):
                     except AttributeError as e:
                         self.report({"WARNING"}, f"Cannot disable constraint '{con.name}' on '{pose_bone.name}': {str(e)}")
 
+        # 2. Enable BAC constraints for the bake process
         state.preview = True
+
+        # 3. Perform the Bake
         try:
             bake_args = {
                 "frame_start": int(target_anim.action.frame_range[0]),
@@ -691,24 +794,36 @@ class BAC_OT_Bake(bpy.types.Operator):
             }
             if state.target_animation_layer:
                 bake_args["animation_layer"] = state.target_animation_layer
+            
             bpy.ops.nla.bake(**bake_args)
+            
         except RuntimeError as e:
             alert_error("Bake Error", f"Failed to bake animation: {str(e)}")
         finally:
+            # 4. Disable BAC constraints again
             state.preview = False
 
+        # 5. Restore non-BAC constraints
         for con, enabled in non_bac_constraints:
             try:
                 set_constraint_enabled(con, enabled)
             except AttributeError as e:
                 self.report({"WARNING"}, f"Cannot restore constraint '{con.name}': {str(e)}")
 
+        # 6. Rename and protect the baked action
         if owner_obj.animation_data and owner_obj.animation_data.action:
             try:
                 owner_obj.animation_data.action.name = f"{state.target.name}_baked"
                 owner_obj.animation_data.action.use_fake_user = True
             except AttributeError as e:
                 self.report({"WARNING"}, f"Cannot rename baked action: {str(e)}")
+        
+        # 7. Restore object mode
+        if prev_mode:
+            try:
+                bpy.ops.object.mode_set(mode=prev_mode)
+            except:
+                self.report({'WARNING'}, "Could not restore previous object mode.")
 
         return {"FINISHED"}
 
@@ -719,7 +834,11 @@ def draw_panel(layout):
     if not state:
         return
     row = layout.row()
+    
+    # LEFT COLUMN: List and Controls 
     left = row.column_flow(columns=1, align=True)
+    
+    # 1. Header Box (Selection/Edit Type)
     box = left.box().row()
     if state.editing_type == 0:
         box_left = box.row(align=True)
@@ -735,13 +854,19 @@ def draw_panel(layout):
     box_right.operator('kumopult_bac.select_edit_type', text='' if state.editing_type != 1 else 'Rotation', icon='CON_ROTLIKE').selected_type = 1
     box_right.operator('kumopult_bac.select_edit_type', text='' if state.editing_type != 2 else 'Location', icon='CON_LOCLIKE').selected_type = 2
     box_right.operator('kumopult_bac.select_edit_type', text='' if state.editing_type != 3 else 'IK', icon='CON_KINEMATIC').selected_type = 3
+
+    # 2. List Template
     left.template_list('BAC_UL_mappings', '', state, 'mappings', state, 'active_mapping', rows=7)
+    
+    # 3. Presets Box
     box = left.box().row(align=True)
     box.menu(BAC_MT_presets.__name__, text=BAC_MT_presets.bl_label, translate=False, icon='PRESET')
     box.operator(AddPresetBACMapping.bl_idname, text="", icon='ADD')
     box.operator(AddPresetBACMapping.bl_idname, text="", icon='REMOVE').remove_active = True
     box.separator()
     box.operator('kumopult_bac.open_preset_folder', text="", icon='FILE_FOLDER')
+
+    # RIGHT COLUMN: Vertical Actions 
     right = row.column(align=True)
     right.separator()
     right.menu(BAC_MT_SettingMenu.__name__, text='', icon='DOWNARROW_HLT')
@@ -757,8 +882,14 @@ def draw_panel(layout):
     right.operator('kumopult_bac.list_action', icon='TRIA_DOWN', text='').action = 'DOWN'
     right.separator()
     right.operator('kumopult_bac.child_mapping', icon='CON_CHILDOF', text='')
-    right.operator('kumopult_bac.name_mapping', icon='CON_TRANSFORM_CACHE', text='')
+    # Name mapping
+    name_map_op = right.operator('kumopult_bac.name_mapping', icon='CON_TRANSFORM_CACHE', text='')
+    name_map_op.prefix = ''
+    name_map_op.suffix = ''
+    name_map_op.use_hierarchy = False
+    
     right.operator('kumopult_bac.mirror_mapping', icon='MOD_MIRROR', text='')
+
 
 class BAC_PT_Panel(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
@@ -769,19 +900,37 @@ class BAC_PT_Panel(bpy.types.Panel):
         """Draw the main UI panel."""
         layout = self.layout
         scene = context.scene
+        
+        # Source/Target Selection Header
         split = layout.row().split(factor=0.2)
         left = split.column()
         right = split.column()
+        
+        # Row 1: Source Armature
         left.label(text='Source Armature:')
-        left.label(text='Target Armature:')
         right.prop(scene, 'kumopult_bac_owner', text='', icon='ARMATURE_DATA', translate=False)
+        
         state = safe_get_state()
+        
         if scene.kumopult_bac_owner and scene.kumopult_bac_owner.type == 'ARMATURE' and state:
+            # Row 2: Target Armature
+            left.label(text='Target Armature:')
             right.prop(state, 'selected_target', text='', icon='ARMATURE_DATA', translate=False)
+
+            # Row 3: IK Chain Length
+            left.label(text='IK Chain Len:') 
+            right.prop(state, 'ik_chain_count', text='')
+
+            # Row 4: Location Space
+            left.label(text='Location Space:')
+            right.prop(state, 'loc_space', text='')
+            
             if not state.target:
                 layout.label(text='Select a different armature object as target to continue', icon='INFO')
             else:
+                # Main content
                 draw_panel(layout.row())
+                # Footer (Preview and Bake)
                 row = layout.row()
                 row.prop(state, 'preview', text='Preview Constraints', icon='HIDE_OFF' if state.preview else 'HIDE_ON')
                 row.operator('kumopult_bac.bake', text='Bake Animation', icon='NLA')
@@ -800,10 +949,13 @@ classes = (
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
+    # 注册 Scene 属性
     bpy.types.Scene.kumopult_bac_owner = bpy.props.PointerProperty(
         type=bpy.types.Object,
-        poll=lambda self, obj: obj.type == 'ARMATURE'
+        poll=lambda self, obj: obj.type == 'ARMATURE',
+        name="Source Armature"
     )
+    # 注册 Armature 属性
     bpy.types.Armature.kumopult_bac = bpy.props.PointerProperty(type=BAC_State)
     print("BAC registered")
 
