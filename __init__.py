@@ -4,7 +4,7 @@ bl_info = {
     "author": "Kumopult (optimized), maylog",
     "description": "Copy animation between armatures using bone constraints.",
     "blender": (4, 2, 0),
-    "version": (1, 1, 4),
+    "version": (1, 1, 5),
     "location": "View 3D > UI > BoneAnimCopy",
     "category": "Animation",
     "tracker_url": "https://github.com/mayloglog/blender_BoneAnimCopy",
@@ -308,7 +308,6 @@ class BAC_State(bpy.types.PropertyGroup):
         self.target = self.selected_target
         self.update_constraints(context)
 
-    @guard("is_updating")
     def update_preview(self, context):
         """Update constraint preview state."""
         self.update_constraints(context)
