@@ -4,7 +4,7 @@ bl_info = {
     "author": "Kumopult (optimized), maylog",
     "description": "Copy animation between armatures using bone constraints.",
     "blender": (4, 2, 0),
-    "version": (1, 1, 5),
+    "version": (1, 1, 6),
     "location": "View 3D > UI > BoneAnimCopy",
     "category": "Animation",
     "tracker_url": "https://github.com/mayloglog/blender_BoneAnimCopy",
@@ -18,6 +18,8 @@ import difflib
 import subprocess
 import sys
 from typing import Optional
+from .translations import translations_dict
+from bpy.app.translations import pgettext_iface
 
 # --- Utilities --------------------------------------------------------------
 
@@ -451,28 +453,28 @@ class BAC_UL_mappings(bpy.types.UIList):
         row = layout.row(align=True)
         if state.editing_type == 0:
             row.prop(item, "selected", text="", emboss=False, icon='CHECKBOX_HLT' if item.selected else 'CHECKBOX_DEHLT')
-            row.prop_search(item, "selected_owner", state.get_owner_armature(), "bones", text="", translate=False, icon='BONE_DATA')
+            row.prop_search(item, "selected_owner", state.get_owner_armature(), "bones", text="", translate=True, icon='BONE_DATA')
             row.label(icon='BACK')
-            row.prop_search(item, "target", state.get_target_armature(), "bones", text="", translate=False, icon='BONE_DATA')
+            row.prop_search(item, "target", state.get_target_armature(), "bones", text="", translate=True, icon='BONE_DATA')
         elif state.editing_type == 1:
             row.prop(item, "has_rotoffs", icon='CON_ROTLIKE', icon_only=True)
-            layout.label(text=item.selected_owner, translate=False)
+            layout.label(text=item.selected_owner, translate=True)
             if item.has_rotoffs:
                 layout.prop(item, "offset", text="")
         elif state.editing_type == 2:
             row.prop(item, "has_loccopy", icon='CON_LOCLIKE', icon_only=True)
-            layout.label(text=item.selected_owner, translate=False)
+            layout.label(text=item.selected_owner, translate=True)
             if item.has_loccopy:
                 layout.prop(item, "loc_axis", text="")
         else: # state.editing_type == 3
             row.prop(item, "has_ik", icon='CON_KINEMATIC', icon_only=True)
-            layout.label(text=item.selected_owner, translate=False)
+            layout.label(text=item.selected_owner, translate=True)
             if item.has_ik:
-                layout.prop(item, "ik_influence", text="Influence")
+                layout.prop(item, "ik_influence", text=pgettext_iface("Influence"))
 
 
 class BAC_MT_SettingMenu(bpy.types.Menu):
-    bl_label = "Settings"
+    bl_label = pgettext_iface("Settings")
     def draw(self, context):
         """Draw the settings menu."""
         state = safe_get_state()
@@ -486,14 +488,15 @@ class BAC_MT_SettingMenu(bpy.types.Menu):
 
 
 class BAC_MT_presets(bpy.types.Menu):
-    bl_label = "Mapping Presets"
+    bl_idname = "BAC_MT_presets"
+    bl_label = pgettext_iface("Mapping Presets")
     preset_subdir = "kumopult_bac"
     preset_operator = "script.execute_preset"
     draw = bpy.types.Menu.draw_preset
 
 class AddPresetBACMapping(AddPresetBase, bpy.types.Operator):
     bl_idname = "kumopult_bac.mappings_preset_add"
-    bl_label = "Add BAC Mappings Preset"
+    bl_label = pgettext_iface("Add BAC Mappings Preset")
     preset_menu = "BAC_MT_presets"
     preset_defines = ["state = bpy.context.scene.kumopult_bac_owner.data.kumopult_bac"]
     preset_values = ["state.mappings", "state.selected_count"]
@@ -501,7 +504,7 @@ class AddPresetBACMapping(AddPresetBase, bpy.types.Operator):
 
 class BAC_OT_OpenPresetFolder(bpy.types.Operator):
     bl_idname = "kumopult_bac.open_preset_folder"
-    bl_label = "Open Preset Folder"
+    bl_label = pgettext_iface("Open Preset Folder")
     def execute(self, context):
         """Open the preset folder in the system file explorer."""
         path = bpy.path.abspath(bpy.utils.resource_path('USER') + "/scripts/presets/kumopult_bac")
@@ -510,7 +513,7 @@ class BAC_OT_OpenPresetFolder(bpy.types.Operator):
 
 class BAC_OT_SelectEditType(bpy.types.Operator):
     bl_idname = "kumopult_bac.select_edit_type"
-    bl_label = "Select Edit Type"
+    bl_label = pgettext_iface("Select Edit Type")
     selected_type: bpy.props.IntProperty()
     def execute(self, context):
         """Set the editing type."""
@@ -522,7 +525,7 @@ class BAC_OT_SelectEditType(bpy.types.Operator):
 
 class BAC_OT_SelectAction(bpy.types.Operator):
     bl_idname = "kumopult_bac.select_action"
-    bl_label = "List Select Action"
+    bl_label = pgettext_iface("List Select Action")
     action: bpy.props.StringProperty()
     def execute(self, context):
         """Handle selection actions for mappings."""
@@ -545,7 +548,7 @@ class BAC_OT_SelectAction(bpy.types.Operator):
 
 class BAC_OT_ListAction(bpy.types.Operator):
     bl_idname = "kumopult_bac.list_action"
-    bl_label = "List Basic Actions"
+    bl_label = pgettext_iface("List Basic Actions")
     action: bpy.props.StringProperty()
     def execute(self, context):
         """Handle basic list actions (add, remove, move)."""
@@ -587,7 +590,7 @@ class BAC_OT_ListAction(bpy.types.Operator):
 
 class BAC_OT_ChildMapping(bpy.types.Operator):
     bl_idname = "kumopult_bac.child_mapping"
-    bl_label = "Child Mapping"
+    bl_label = pgettext_iface("Child Mapping")
     def execute(self, context):
         """Create mappings for child bones."""
         state = safe_get_state()
@@ -638,7 +641,7 @@ class BAC_OT_ChildMapping(bpy.types.Operator):
 
 class BAC_OT_NameMapping(bpy.types.Operator):
     bl_idname = "kumopult_bac.name_mapping"
-    bl_label = "Name Mapping"
+    bl_label = pgettext_iface("Name Mapping")
     prefix: bpy.props.StringProperty(default="", description="Prefix to match in bone names")
     suffix: bpy.props.StringProperty(default="", description="Suffix to match in bone names")
     use_hierarchy: bpy.props.BoolProperty(default=False, description="Match bones based on hierarchy")
@@ -694,7 +697,7 @@ class BAC_OT_NameMapping(bpy.types.Operator):
 
 class BAC_OT_MirrorMapping(bpy.types.Operator):
     bl_idname = "kumopult_bac.mirror_mapping"
-    bl_label = "Mirror Mapping"
+    bl_label = pgettext_iface("Mirror Mapping")
     def execute(self, context):
         """Create mirrored mappings for selected bones."""
         state = safe_get_state()
@@ -736,7 +739,7 @@ class BAC_OT_MirrorMapping(bpy.types.Operator):
 
 class BAC_OT_Bake(bpy.types.Operator):
     bl_idname = "kumopult_bac.bake"
-    bl_label = "Bake Animation"
+    bl_label = pgettext_iface("Bake Animation")
     def execute(self, context):
         """Bake animation from target to owner armature."""
         scene = context.scene
@@ -859,7 +862,7 @@ def draw_panel(layout):
     
     # 3. Presets Box
     box = left.box().row(align=True)
-    box.menu(BAC_MT_presets.__name__, text=BAC_MT_presets.bl_label, translate=False, icon='PRESET')
+    box.menu(BAC_MT_presets.__name__, text=pgettext_iface("Mapping"), icon='PRESET')
     box.operator(AddPresetBACMapping.bl_idname, text="", icon='ADD')
     box.operator(AddPresetBACMapping.bl_idname, text="", icon='REMOVE').remove_active = True
     box.separator()
@@ -893,10 +896,11 @@ def draw_panel(layout):
 class BAC_PT_Panel(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "BoneAnimCopy"
-    bl_label = "Bone Animation Copy Tool"
+    bl_category = pgettext_iface("BoneAnimCopy")
+    bl_label = pgettext_iface("Bone Animation Copy Tool")
     def draw(self, context):
         """Draw the main UI panel."""
+        from bpy.app.translations import pgettext_iface
         layout = self.layout
         scene = context.scene
         
@@ -906,35 +910,35 @@ class BAC_PT_Panel(bpy.types.Panel):
         right = split.column()
         
         # Row 1: Source Armature
-        left.label(text='Source Armature:')
+        left.label(text=pgettext_iface('Source Armature:'))
         right.prop(scene, 'kumopult_bac_owner', text='', icon='ARMATURE_DATA', translate=False)
         
         state = safe_get_state()
         
         if scene.kumopult_bac_owner and scene.kumopult_bac_owner.type == 'ARMATURE' and state:
             # Row 2: Target Armature
-            left.label(text='Target Armature:')
+            left.label(text=pgettext_iface('Target Armature:'))
             right.prop(state, 'selected_target', text='', icon='ARMATURE_DATA', translate=False)
 
             # Row 3: IK Chain Length
-            left.label(text='IK Chain Len:') 
+            left.label(text=pgettext_iface('IK Chain Len:'))
             right.prop(state, 'ik_chain_count', text='')
 
             # Row 4: Location Space
-            left.label(text='Location Space:')
+            left.label(text=pgettext_iface('Location Space:'))
             right.prop(state, 'loc_space', text='')
             
             if not state.target:
-                layout.label(text='Select a different armature object as target to continue', icon='INFO')
+                layout.label(text=pgettext_iface('Select a different armature object as target to continue', icon='INFO'))
             else:
                 # Main content
                 draw_panel(layout.row())
                 # Footer (Preview and Bake)
                 row = layout.row()
-                row.prop(state, 'preview', text='Preview Constraints', icon='HIDE_OFF' if state.preview else 'HIDE_ON')
-                row.operator('kumopult_bac.bake', text='Bake Animation', icon='NLA')
+                row.prop(state, 'preview', text=pgettext_iface('Preview Constraints'), icon='HIDE_OFF' if state.preview else 'HIDE_ON')
+                row.operator('kumopult_bac.bake', text=pgettext_iface('Bake Animation'), icon='NLA')
         else:
-            right.label(text='No source armature selected', icon='ERROR')
+            right.label(text=pgettext_iface('No source armature selected', icon='ERROR'))
 
 # --- Registration -----------------------------------------------------------
 
@@ -946,6 +950,22 @@ classes = (
 )
 
 def register():
+    bpy.app.translations.register(__name__, translations_dict)
+    BAC_OT_ListAction.bl_label = pgettext_iface("List Basic Actions")
+    BAC_OT_SelectEditType.bl_label = pgettext_iface("Select Edit Type")
+    BAC_OT_SelectAction.bl_label = pgettext_iface("List Select Action")
+    BAC_OT_ChildMapping.bl_label = pgettext_iface("Child Mapping")
+    BAC_OT_NameMapping.bl_label = pgettext_iface("Name Mapping")
+    BAC_OT_MirrorMapping.bl_label = pgettext_iface("Mirror Mapping")
+    BAC_OT_Bake.bl_label = pgettext_iface("Bake Animation")
+    BAC_MT_SettingMenu.bl_label = pgettext_iface("Settings")
+    BAC_MT_presets.bl_label = pgettext_iface("Mapping Presets")
+    AddPresetBACMapping.bl_label = pgettext_iface("Add BAC Mappings Preset")
+    BAC_OT_OpenPresetFolder.bl_label = pgettext_iface("Open Preset Folder")
+    BAC_PT_Panel.bl_label = pgettext_iface("Bone Animation Copy Tool")
+    BAC_PT_Panel.bl_category = pgettext_iface("BoneAnimCopy")
+    
+
     for cls in classes:
         bpy.utils.register_class(cls)
     # 注册 Scene 属性
@@ -959,6 +979,7 @@ def register():
     print("BAC registered")
 
 def unregister():
+    bpy.app.translations.unregister(__name__)
     try:
         del bpy.types.Scene.kumopult_bac_owner
     except AttributeError:
