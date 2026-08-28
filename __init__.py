@@ -4,7 +4,7 @@ bl_info = {
     "author": "Kumopult (optimized), maylog",
     "description": "Copy animation between armatures using bone constraints.",
     "blender": (4, 2, 0),
-    "version": (1, 1, 6),
+    "version": (1, 1, 7),
     "location": "View 3D > UI > BoneAnimCopy",
     "category": "Animation",
     "tracker_url": "https://github.com/mayloglog/blender_BoneAnimCopy",
